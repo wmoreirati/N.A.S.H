@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+instance/
+*.db
+.DS_Store
+
+# Cofre Obsidian pessoal — não faz parte da aplicação
+N.A.S.H/
+
+# Vercel
+.vercel/

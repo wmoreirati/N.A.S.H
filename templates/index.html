@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>N.A.S.H — Command Center</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
+    options: { skipHtmlTags: ['script', 'noscript', 'style', 'textarea', 'pre', 'code'] }
+  };
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js" defer></script>
+</head>
+<body>
+
+<div id="app-shell">
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <nav id="sidebar">
+    <div class="sidebar-brand">
+      <div class="sidebar-brand-mark">N</div>
+      <div class="sidebar-brand-name">N.A.S.H</div>
+    </div>
+
+    <div class="sidebar-nav">
+      <button class="nav-btn active" data-view="central" title="Central" aria-label="Central de comando">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/></svg>
+        Central
+      </button>
+      <button class="nav-btn" data-view="agenda" title="Agenda" aria-label="Agenda e tarefas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="5" width="16" height="15" rx="1.5"/><path d="M4 9.5h16M8 3v4M16 3v4"/></svg>
+        Agenda
+      </button>
+      <button class="nav-btn" data-view="study" title="Estudo" aria-label="Modo estudo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6.5C4 5.7 4.7 5 5.5 5H12v14H5.5A1.5 1.5 0 0 1 4 17.5v-11z"/><path d="M20 6.5c0-.8-.7-1.5-1.5-1.5H12v14h6.5a1.5 1.5 0 0 0 1.5-1.5v-11z"/></svg>
+        Estudo
+      </button>
+      <button class="nav-btn" data-view="lab" title="Laboratório" aria-label="Laboratório">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 3h6M10 3v6l-5.5 9A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-3L14 9V3"/><path d="M8 15h8"/></svg>
+        Laboratório
+      </button>
+      <button class="nav-btn" data-view="projects" title="Projetos" aria-label="Projetos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 6h6l2 2h8v10H4z"/></svg>
+        Projetos
+      </button>
+      <button class="nav-btn" data-view="apps" title="Apps" aria-label="Apps conectados">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
+        Apps
+      </button>
+      <button class="nav-btn" data-view="memory" title="Memória" aria-label="Memória">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>
+        Memória
+      </button>
+      <button class="nav-btn" data-view="activity" title="Atividade" aria-label="Log de atividade">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l2.5-7 5 14 2.5-7H21"/></svg>
+        Atividade
+      </button>
+    </div>
+
+    <div class="sidebar-footer">
+      <button class="nav-btn" data-view="settings" title="Ajustes" aria-label="Configurações">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V20a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H4a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.6V4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.6 1H20a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1z"/></svg>
+        Ajustes
+      </button>
+      <div class="sidebar-version">v1.0 · local</div>
+    </div>
+  </nav>
+
+  <!-- ===================== HEADER ===================== -->
+  <header id="header">
+    <div class="brand">
+      <div class="core" id="core-indicator">
+        <div class="core-ring r1"></div>
+        <div class="core-ring r2"></div>
+        <div class="core-ring r3"></div>
+        <div class="core-orbit"><span class="core-dot"></span></div>
+      </div>
+      <div class="brand-wordmark">N.A.S.H<div class="brand-subtitle" id="header-page-title">Command Center · Central de comando</div></div>
+    </div>
+    <div id="header-status">
+      <div class="status-chip" id="chip-ai" title="Status do provedor de IA">
+        <span class="dot off"></span><span id="chip-ai-text">IA offline</span>
+      </div>
+      <div class="status-chip" id="chip-tasks" title="Tarefas ativas">
+        <span class="dot on"></span><span id="chip-tasks-text">0 tarefas</span>
+      </div>
+      <div class="status-chip" title="Horário local">
+        <span id="header-clock">--:--:--</span>
+      </div>
+      <button class="icon-btn" id="voice-output-toggle" title="Ativar/desativar leitura por voz das respostas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9v6h4l5 5V4L8 9H4z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===================== MAIN ===================== -->
+  <main id="main">
+
+    <!-- ---- CENTRAL ---- -->
+    <section class="view active" id="view-central">
+      <div class="dashboard-row">
+        <div class="panel dash-card dash-card-main">
+          <div class="dash-card-main-text">
+            <div class="dash-eyebrow">Assistente pessoal</div>
+            <h1 class="dash-title">Olá, eu sou o N.A.S.H.</h1>
+            <p class="dash-text">Organizo sua rotina, apoio seus estudos e executo ações autorizadas com transparência.</p>
+          </div>
+          <div class="core core-big" id="dash-core" aria-hidden="true">
+            <div class="core-ring r1"></div>
+            <div class="core-ring r2"></div>
+            <div class="core-ring r3"></div>
+            <div class="core-orbit"><span class="core-dot"></span></div>
+          </div>
+        </div>
+        <div class="panel dash-card">
+          <div class="dash-eyebrow">Sistema</div>
+          <div class="dash-stat" id="dash-system-status">ONLINE</div>
+          <div class="dash-sub">Operacional</div>
+        </div>
+        <div class="panel dash-card">
+          <div class="dash-eyebrow">Clima</div>
+          <div class="dash-stat dash-stat-muted">—</div>
+          <div class="dash-sub">Não conectado</div>
+        </div>
+      </div>
+
+      <div class="panel" id="chat-view" style="flex:1; min-height:0; display:flex; flex-direction:column;">
+        <div class="panel-header" style="border-bottom:1px solid var(--border);">
+          <span>N.A.S.H Core</span>
+          <span class="count" id="chat-core-status">pronto</span>
+        </div>
+        <div id="chat-scroll"></div>
+        <div class="suggestion-row">
+          <button class="suggestion-chip" data-suggestion="Monte um plano para estudar física">Monte um plano para estudar física</button>
+          <button class="suggestion-chip" data-suggestion="Tenho uma prova de química sexta">Tenho uma prova de química sexta</button>
+          <button class="suggestion-chip" data-suggestion="Mostre minha agenda">Mostre minha agenda</button>
+          <button class="suggestion-chip" data-suggestion="Explique matemática passo a passo">Explique matemática passo a passo</button>
+          <button class="suggestion-chip" data-suggestion="Analise meu projeto">Analise meu projeto</button>
+        </div>
+        <div style="padding: 10px;">
+          <form id="composer" autocomplete="off">
+            <button type="button" class="icon-btn" id="mic-btn" title="Falar (reconhecimento de voz)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+            </button>
+            <textarea id="chat-input" rows="1" placeholder="Converse naturalmente com o N.A.S.H..."></textarea>
+            <button type="submit" class="icon-btn" id="send-btn" title="Enviar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12l16-8-6 16-3-7-7-1z"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---- AGENDA (calendário local + tarefas) ---- -->
+    <section class="view" id="view-agenda">
+      <div class="agenda-grid">
+
+        <div class="panel" style="display:flex; flex-direction:column; min-height:0;">
+          <div class="panel-header" style="border:none;">
+            <span>Agenda · Hoje</span>
+            <span class="count" id="calendar-google-status">local</span>
+          </div>
+          <p style="color: var(--text-muted); font-size: 12.5px; margin: 0; padding: 0 16px 8px;">
+            Agenda local, baseada nas tarefas com data/hora. A aba Apps mostra o estado real da
+            sincronização com o Google Calendar.
+          </p>
+          <div class="list-scroll" id="calendar-list" style="padding: 0 14px 14px;"></div>
+        </div>
+
+        <div class="panel list-view" style="padding: 14px;">
+          <div class="panel-header" style="border:none; padding:0;">
+            <span>Prioridades · Tarefas</span>
+            <span class="count" id="tasks-count">0</span>
+          </div>
+          <div class="list-toolbar">
+            <select id="tasks-filter">
+              <option value="pendente">Pendentes</option>
+              <option value="concluida">Concluídas</option>
+              <option value="excluida">Excluídas</option>
+              <option value="">Todas</option>
+            </select>
+            <button class="btn" id="tasks-new-btn">+ Nova tarefa</button>
+          </div>
+          <div class="inline-form" id="task-form" style="display:none;">
+            <div class="row">
+              <input type="text" id="task-title" placeholder="Título da tarefa *">
+            </div>
+            <div class="row">
+              <input type="date" id="task-date">
+              <input type="time" id="task-time">
+              <select id="task-priority">
+                <option value="normal">Prioridade normal</option>
+                <option value="alta">Prioridade alta</option>
+                <option value="baixa">Prioridade baixa</option>
+              </select>
+            </div>
+            <textarea id="task-description" placeholder="Descrição (opcional)"></textarea>
+            <div class="row">
+              <button class="btn primary" id="task-save-btn" type="button">Criar tarefa</button>
+              <button class="btn" id="task-cancel-btn" type="button">Cancelar</button>
+            </div>
+          </div>
+          <div class="list-scroll" id="tasks-list"></div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ---- ESTUDO ---- -->
+    <section class="view" id="view-study">
+      <div class="panel" style="flex:1; min-height:0; padding: 20px; overflow-y:auto;">
+        <div class="dash-eyebrow">N.A.S.H Study Mode</div>
+        <h2 class="dash-title" style="font-size: 22px;">Aprenda com método, sem pular etapas.</h2>
+        <p class="dash-text" style="max-width: 640px;">
+          Peça uma explicação ou um plano. O N.A.S.H identifica dados, conceitos e fórmulas
+          antes de resolver passo a passo.
+        </p>
+        <button class="btn primary" id="study-plan-btn" style="margin-top: 10px;">Criar plano de estudos</button>
+      </div>
+    </section>
+
+    <!-- ---- LABORATÓRIO ---- -->
+    <section class="view" id="view-lab">
+      <div class="panel" style="flex:1; min-height:0; padding: 20px; overflow-y:auto;">
+        <div class="dash-eyebrow">N.A.S.H Lab</div>
+        <h2 class="dash-title" style="font-size: 22px;">Experimentos e análises com contexto.</h2>
+        <p class="dash-text" style="max-width: 640px;">
+          Estrutura reservada para hipóteses, procedimentos, resultados e observações.
+          Esta área ainda não tem funcionalidade própria no backend — nenhuma ação aqui é
+          persistida. Peça análises diretamente pelo chat, na Central.
+        </p>
+        <span class="badge normal" style="margin-top: 8px; display:inline-block;">Em breve</span>
+      </div>
+    </section>
+
+    <!-- ---- PROJETOS ---- -->
+    <section class="view" id="view-projects">
+      <div class="panel list-view" style="flex:1; min-height:0; padding: 14px;">
+        <div class="panel-header" style="border:none; padding:0;">
+          <span>Projetos</span>
+          <span class="count" id="projects-count">0</span>
+        </div>
+        <div class="list-toolbar">
+          <button class="btn" id="projects-new-btn">+ Novo projeto</button>
+        </div>
+        <div class="inline-form" id="project-form" style="display:none;">
+          <div class="row"><input type="text" id="project-name" placeholder="Nome do projeto *"></div>
+          <textarea id="project-description" placeholder="Descrição"></textarea>
+          <textarea id="project-objectives" placeholder="Objetivos"></textarea>
+          <div class="row">
+            <button class="btn primary" id="project-save-btn" type="button">Criar projeto</button>
+            <button class="btn" id="project-cancel-btn" type="button">Cancelar</button>
+          </div>
+        </div>
+        <div class="list-scroll" id="projects-list"></div>
+      </div>
+    </section>
+
+    <!-- ---- APPS (conexões externas) ---- -->
+    <section class="view" id="view-apps">
+      <div class="panel" style="flex:1; min-height:0; padding: 14px; overflow-y:auto;">
+        <div class="panel-header" style="border:none; padding:0 0 10px;">
+          <span>Connected Apps</span>
+        </div>
+        <p style="color: var(--text-muted); font-size: 13.5px; max-width: 640px;">
+          O N.A.S.H nunca finge estar conectado a um serviço externo. A lista abaixo mostra o
+          estado real. A integração OAuth completa (Spotify, Google Calendar, Gmail, Outlook) está
+          preparada na arquitetura do backend, mas depende de credenciais de aplicativo que ainda
+          não foram configuradas nesta instalação.
+        </p>
+        <div id="connections-list" style="margin-top: 10px;"></div>
+      </div>
+    </section>
+
+    <!-- ---- MEMÓRIA ---- -->
+    <section class="view" id="view-memory">
+      <div class="panel list-view" style="flex:1; min-height:0; padding: 14px;">
+        <div class="panel-header" style="border:none; padding:0;">
+          <span>Memória autorizada</span>
+          <span class="count" id="memory-count">0</span>
+        </div>
+        <div class="list-toolbar">
+          <button class="btn" id="memory-new-btn">+ Adicionar memória</button>
+          <button class="btn danger" id="memory-clear-btn">Apagar todas</button>
+        </div>
+        <div class="inline-form" id="memory-form" style="display:none;">
+          <textarea id="memory-content" placeholder="O que devo lembrar?"></textarea>
+          <div class="row">
+            <select id="memory-category">
+              <option value="preferencia">Preferência</option>
+              <option value="projeto">Projeto</option>
+              <option value="estudo">Estudo</option>
+              <option value="tarefa">Tarefa</option>
+              <option value="contexto">Contexto</option>
+              <option value="geral">Geral</option>
+            </select>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="memory-save-btn" type="button">Salvar</button>
+            <button class="btn" id="memory-cancel-btn" type="button">Cancelar</button>
+          </div>
+        </div>
+        <div class="list-scroll" id="memory-list"></div>
+      </div>
+    </section>
+
+    <!-- ---- ATIVIDADE ---- -->
+    <section class="view" id="view-activity">
+      <div class="panel" style="flex:1; min-height:0; padding: 14px; overflow-y:auto;">
+        <div class="panel-header" style="border:none; padding:0 0 10px;">
+          <span>N.A.S.H Activity Log</span>
+        </div>
+        <div class="list-scroll" id="activity-list"></div>
+      </div>
+    </section>
+
+    <!-- ---- AJUSTES ---- -->
+    <section class="view" id="view-settings">
+      <div class="panel" style="flex:1; min-height:0; padding: 14px; overflow-y:auto;">
+        <div class="panel-header" style="border:none; padding:0 0 8px;">Configurações</div>
+        <div class="stat-row"><span>Nome do assistente</span><span class="stat-value">N.A.S.H</span></div>
+        <div class="stat-row"><span>Provedor de IA</span><span class="stat-value" id="settings-ai-model">—</span></div>
+        <div class="stat-row"><span>Histórico enviado ao modelo</span><span class="stat-value" id="settings-history-limit">—</span> mensagens</div>
+        <div class="stat-row">
+          <span>Leitura das respostas em voz alta</span>
+          <button class="btn small" id="settings-voice-toggle">Ativar</button>
+        </div>
+        <p style="color: var(--text-muted); font-size: 13px; margin-top: 14px;">
+          As demais configurações (chave de API, modelo, limite de histórico) ficam no arquivo
+          <code style="font-family: var(--font-mono); background: rgba(0,229,255,0.08); padding: 1px 5px; border-radius: 3px;">.env</code>
+          do servidor, por segurança — nunca no navegador. Veja o README para instruções.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ===================== ASIDE (status) ===================== -->
+  <aside id="aside">
+    <div class="panel" style="padding: 12px;">
+      <div class="panel-header" style="border:none; padding:0 0 8px;">Sistema</div>
+      <div class="stat-row"><span>Provedor de IA</span><span class="stat-value" id="aside-ai-model">—</span></div>
+      <div class="stat-row"><span>Tarefas ativas</span><span class="stat-value" id="aside-tasks">0</span></div>
+      <div class="stat-row"><span>Projetos</span><span class="stat-value" id="aside-projects">0</span></div>
+      <div class="stat-row"><span>Memórias</span><span class="stat-value" id="aside-memories">0</span></div>
+    </div>
+    <div class="panel" style="padding: 12px;">
+      <div class="panel-header" style="border:none; padding:0 0 8px;">Conexões</div>
+      <div id="aside-connections"></div>
+    </div>
+  </aside>
+
+</div>
+
+<div id="toast-area"></div>
+
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
