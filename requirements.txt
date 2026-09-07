@@ -2,6 +2,7 @@ Flask==3.0.3
 Flask-SQLAlchemy==3.1.1
 python-dotenv==1.0.1
 requests==2.34.2
+psycopg[binary]==3.3.5
 
 # Provedores de IA — instale apenas o que for usar (ver AI_PROVIDER no .env).
 # O Ollama (padrão) não precisa de biblioteca própria, só de `requests`.
