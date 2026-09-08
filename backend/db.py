@@ -122,8 +122,17 @@ def init_db(app):
     app.config.setdefault("SQLALCHEMY_TRACK_MODIFICATIONS", False)
 
     if is_postgres(uri):
-        # Quem faz o pooling é o Supavisor (pooler do Supabase), não nós.
-        app.config.setdefault("SQLALCHEMY_ENGINE_OPTIONS", {"poolclass": NullPool})
+        app.config.setdefault("SQLALCHEMY_ENGINE_OPTIONS", {
+            # Quem faz o pooling é o Supavisor (pooler do Supabase), não nós.
+            "poolclass": NullPool,
+            # O psycopg3 promove consultas repetidas a prepared statements no
+            # servidor. Com o pooler em modo transação, cada execução pode cair
+            # num backend diferente, e os nomes colidem:
+            #     DuplicatePreparedStatement: prepared statement "_pg3_0" already exists
+            # A falha é intermitente e só aparece depois de algumas repetições
+            # da mesma consulta — justamente o padrão de uso normal do app.
+            "connect_args": {"prepare_threshold": None},
+        })
 
     db.init_app(app)
 
