@@ -68,6 +68,49 @@ class OpenAIProvider(AIProvider):
             self._client = OpenAI(**kwargs)
         return self._client
 
+    def _erro_amigavel(self, mensagem: str, codigo=None, origem: Exception | None = None):
+        """
+        Converte a falha do provedor em algo acionável para quem está usando.
+
+        Sem isto, "sem créditos", "modelo sobrecarregado" e "chave errada"
+        chegavam todos como "não foi possível contatar o provedor" — e a
+        pessoa não tinha como saber onde mexer. Sempre levanta exceção.
+        """
+        m = (mensagem or "").lower()
+        try:
+            codigo = int(codigo) if codigo is not None else None
+        except (TypeError, ValueError):
+            codigo = None
+
+        if codigo in (401, 403) or "api key" in m or "authentic" in m or "user not found" in m:
+            raise MissingAPIKeyError(
+                f"A chave da API foi rejeitada pelo provedor {self.NOME}. "
+                f"Verifique se {self.VAR_CHAVE} está correta."
+            ) from origem
+
+        if codigo == 402 or "insufficient credit" in m or "purchase" in m:
+            raise AIServiceUnavailableError(
+                f"A conta do {self.NOME} está sem créditos para o modelo '{self.model}'. "
+                "Adicione crédito no painel do provedor ou troque para um modelo gratuito."
+            ) from origem
+
+        if codigo == 429 or "rate-limited" in m or "rate limit" in m or "quota" in m:
+            raise AIServiceUnavailableError(
+                f"O modelo '{self.model}' está sem capacidade no momento (limite de uso). "
+                "Tente de novo em instantes ou escolha outro modelo."
+            ) from origem
+
+        if codigo in (502, 503) or "overloaded" in m or "upstream" in m:
+            raise AIServiceUnavailableError(
+                f"O modelo '{self.model}' está sobrecarregado do lado do fornecedor. "
+                "Tente de novo em instantes ou escolha outro modelo."
+            ) from origem
+
+        raise AIServiceUnavailableError(
+            f"Não foi possível obter resposta de {self.NOME} no momento"
+            + (f": {mensagem}" if mensagem else ".")
+        ) from origem
+
     def chat(self, messages: list[dict], tools: list[dict] | None = None) -> AIResponse:
         client = self._get_client()
 
@@ -84,14 +127,17 @@ class OpenAIProvider(AIProvider):
             completion = client.chat.completions.create(**kwargs)
         except Exception as exc:  # noqa: BLE001 - normalizamos qualquer falha de rede/API
             logger.error("Falha ao chamar a API de %s: %s", self.NOME, exc)
-            message = str(exc)
-            if "authentic" in message.lower() or "api key" in message.lower() or "401" in message:
-                raise MissingAPIKeyError(
-                    f"A chave da API foi rejeitada pelo provedor {self.NOME}. Verifique se {self.VAR_CHAVE} está correta."
-                ) from exc
-            raise AIServiceUnavailableError(
-                "Não foi possível contatar o provedor de IA no momento. Tente novamente em instantes."
-            ) from exc
+            self._erro_amigavel(str(exc), getattr(exc, "status_code", None), origem=exc)
+
+        # Serviços compatíveis nem sempre usam o código HTTP para sinalizar
+        # falha: o OpenRouter devolve 200 com o erro no corpo e `choices` nulo
+        # (modelo sobrecarregado, por exemplo). Indexar direto viraria um
+        # TypeError incompreensível na cara de quem só fez uma pergunta.
+        if not getattr(completion, "choices", None):
+            erro = getattr(completion, "error", None)
+            erro = erro if isinstance(erro, dict) else {}
+            logger.error("%s respondeu sem choices: %s", self.NOME, erro or completion)
+            self._erro_amigavel(str(erro.get("message") or ""), erro.get("code"))
 
         choice = completion.choices[0]
         msg = choice.message
