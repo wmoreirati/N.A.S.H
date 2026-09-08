@@ -18,6 +18,28 @@ logging.basicConfig(level=logging.INFO, format="[%(levelname)s] %(name)s: %(mess
 logger = logging.getLogger("nash.app")
 
 
+def env_int(name: str, default: int) -> int:
+    """
+    Lê uma variável de ambiente numérica tolerando o caso mais comum em
+    painéis de hospedagem: a variável existe, mas está vazia.
+
+    `os.environ.get(nome, padrao)` só devolve o padrão quando a chave não
+    existe — com a chave presente e vazia ele devolve "", e um int("") aí
+    derruba a aplicação inteira na subida. Valor inválido também não deve
+    ser fatal: vira aviso no log e o padrão prevalece.
+    """
+    raw = (os.environ.get(name) or "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        logger.warning(
+            "%s tem valor inválido (%r) — usando o padrão %d.", name, raw, default
+        )
+        return default
+
+
 def create_app(config_overrides: dict | None = None) -> Flask:
     """Factory da aplicação — permite instanciar apps isoladas (ex.: testes)."""
     app = Flask(__name__)
@@ -32,7 +54,7 @@ def create_app(config_overrides: dict | None = None) -> Flask:
         )
     app.config["SECRET_KEY"] = secret_key
 
-    app.config["MAX_HISTORY_MESSAGES"] = int(os.environ.get("MAX_HISTORY_MESSAGES", "30"))
+    app.config["MAX_HISTORY_MESSAGES"] = env_int("MAX_HISTORY_MESSAGES", 30)
 
     if config_overrides:
         app.config.update(config_overrides)
@@ -379,7 +401,7 @@ def _register_routes(app: Flask):
 app = create_app()
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
+    port = env_int("PORT", 5000)
     debug = os.environ.get("FLASK_DEBUG", "1") == "1"
     print(f"\n N.A.S.H rodando em http://127.0.0.1:{port}\n")
     app.run(host="127.0.0.1", port=port, debug=debug)

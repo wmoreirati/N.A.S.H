@@ -19,10 +19,7 @@ logger = logging.getLogger("nash.ai.gemini")
 class GeminiProvider(AIProvider):
     def __init__(self, model: str | None = None):
         self.api_key = os.environ.get("GEMINI_API_KEY", "").strip()
-        self.model = model or os.environ.get(
-            "GEMINI_MODEL",
-            "gemini-3.6-flash",
-        )
+        self.model = model or (os.environ.get("GEMINI_MODEL") or "").strip() or "gemini-3.6-flash"
         self._client = None
 
         # Guarda a resposta ORIGINAL do Gemini.

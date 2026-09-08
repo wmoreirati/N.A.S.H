@@ -22,15 +22,11 @@ class OllamaProvider(AIProvider):
     """
 
     def __init__(self, model: str | None = None):
-        self.base_url = os.environ.get(
-            "OLLAMA_BASE_URL",
-            "http://127.0.0.1:11434",
+        self.base_url = (
+            (os.environ.get("OLLAMA_BASE_URL") or "").strip() or "http://127.0.0.1:11434"
         ).rstrip("/")
 
-        self.model = model or os.environ.get(
-            "OLLAMA_MODEL",
-            "qwen3:1.7b",
-        )
+        self.model = model or (os.environ.get("OLLAMA_MODEL") or "").strip() or "qwen3:1.7b"
 
     def is_configured(self) -> bool:
         return bool(self.model)

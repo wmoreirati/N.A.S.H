@@ -23,7 +23,7 @@ logger = logging.getLogger("nash.ai.openai")
 class OpenAIProvider(AIProvider):
     def __init__(self, model: str | None = None):
         self.api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-        self.model = model or os.environ.get("OPENAI_MODEL", "gpt-4o-mini")
+        self.model = model or (os.environ.get("OPENAI_MODEL") or "").strip() or "gpt-4o-mini"
         self._client = None
 
     def is_configured(self) -> bool:
