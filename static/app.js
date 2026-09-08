@@ -830,14 +830,27 @@
       // O nome do modelo vai num elemento proprio para o CSS poder escondê-lo
       // no celular, onde o cabeçalho não tem largura para ele.
       const chipAi = $("#chip-ai-text");
-      chipAi.textContent = data.ai_configured ? "IA online" : "IA offline";
-      if (data.ai_configured && data.ai_model) {
+
+      // Ter chave nao e o mesmo que a IA responder. Uma chave invalida
+      // passa em ai_configured, e mostrar "online" nesse caso seria mentir
+      // para quem esta esperando uma resposta que nunca vem.
+      const comErro = Boolean(data.ai_error);
+      chipAi.textContent = comErro
+        ? "IA com erro"
+        : data.ai_configured ? "IA online" : "IA offline";
+
+      if (!comErro && data.ai_configured && data.ai_model) {
         const modelo = document.createElement("span");
         modelo.className = "chip-detail";
         modelo.textContent = ` (${data.ai_model})`;
         chipAi.appendChild(modelo);
       }
-      aiChip.querySelector(".dot").className = `dot ${data.ai_configured ? "on" : "off"}`;
+
+      aiChip.title = comErro
+        ? `Provedor com erro: ${data.ai_error}`
+        : "Status do provedor de IA";
+      aiChip.querySelector(".dot").className =
+        `dot ${comErro ? "warn" : data.ai_configured ? "on" : "off"}`;
 
       $("#chip-tasks-text").textContent = `${data.tasks_active} tarefa(s)`;
 

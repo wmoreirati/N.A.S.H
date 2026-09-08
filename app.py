@@ -80,6 +80,14 @@ def _register_routes(app: Flask):
 
     ai_provider = build_provider()
 
+    # Último erro real do provedor de IA, para o indicador de status não
+    # afirmar "online" quando a IA não responde. Guardado em memória do
+    # processo: em servidor sem estado, uma falha registrada numa instância
+    # pode não ser vista por outra. É melhor-esforço de propósito — a
+    # alternativa (validar a chave a cada verificação de saúde) gastaria uma
+    # chamada de API a cada 20 segundos.
+    _last_ai_error = [None]
+
     # -----------------------------------------------------------------
     # Helpers
     # -----------------------------------------------------------------
@@ -137,11 +145,12 @@ def _register_routes(app: Flask):
             "ok": True,
             "status": "healthy",
             "ai_provider": get_provider_name(),
+            # Atenção ao significado: isto diz que HÁ uma credencial, não que
+            # ela funciona. Uma chave inválida passa por aqui — quem sabe da
+            # verdade é `ai_error`, preenchido quando uma chamada real falha.
             "ai_configured": ai_provider.is_configured(),
             "ai_model": ai_provider.model if ai_provider.is_configured() else None,
-            # Preenchido só quando o provedor não pôde ser carregado — é o que
-            # permite diagnosticar o servidor sem precisar do log da plataforma.
-            "ai_error": getattr(ai_provider, "motivo", None),
+            "ai_error": getattr(ai_provider, "motivo", None) or _last_ai_error[0],
             "max_history_messages": _history_limit(),
             "tasks_active": tasks_mod.count_active_tasks(),
             "memories_count": len(memory_mod.list_memories()),
@@ -183,6 +192,14 @@ def _register_routes(app: Flask):
             logger.exception("Erro inesperado no turno de chat")
             log_action("chat_turn_error", detail=str(exc), success=False)
             return jsonify({"ok": True, "type": "error", "text": f"Ocorreu um erro inesperado: {exc}"})
+
+        # Uma resposta de erro significa que a IA nao respondeu de fato.
+        # Registrar isso e o que permite o indicador dizer a verdade em vez
+        # de mostrar "online" com a chave recusada.
+        if result["type"] == "error":
+            _last_ai_error[0] = result["text"]
+        else:
+            _last_ai_error[0] = None
 
         if result["type"] in ("message", "confirmation_required"):
             _save_message("assistant", result["text"])
