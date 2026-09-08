@@ -926,7 +926,9 @@ body::after {
     scrollbar-width: none;
   }
   .suggestion-row::-webkit-scrollbar { display: none; }
-  .suggestion-chip { flex: 0 0 auto; scroll-snap-align: start; }
+  /* Sem o nowrap, o texto quebra dentro da pilula e ela vira uma capsula
+     alta e estreita — o oposto do que uma sugestao rapida deve parecer. */
+  .suggestion-chip { flex: 0 0 auto; scroll-snap-align: start; white-space: nowrap; }
 
   /* O campo de texto precisa poder encolher dentro do composer */
   #composer { padding: 8px; gap: 6px; }
