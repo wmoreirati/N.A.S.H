@@ -21,9 +21,28 @@ logger = logging.getLogger("nash.ai.openai")
 
 
 class OpenAIProvider(AIProvider):
+    """
+    Provedor para a API da OpenAI e para qualquer serviço compatível com ela.
+
+    Os atributos de classe abaixo existem para que um serviço compatível
+    (como o OpenRouter) seja uma subclasse de quatro linhas, em vez de uma
+    cópia inteira desta implementação.
+    """
+
+    NOME = "OpenAI"
+    VAR_CHAVE = "OPENAI_API_KEY"
+    VAR_MODELO = "OPENAI_MODEL"
+    MODELO_PADRAO = "gpt-4o-mini"
+    BASE_URL = None          # None = endpoint padrão da OpenAI
+    CABECALHOS = None
+
     def __init__(self, model: str | None = None):
-        self.api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-        self.model = model or (os.environ.get("OPENAI_MODEL") or "").strip() or "gpt-4o-mini"
+        self.api_key = os.environ.get(self.VAR_CHAVE, "").strip()
+        self.model = (
+            model
+            or (os.environ.get(self.VAR_MODELO) or "").strip()
+            or self.MODELO_PADRAO
+        )
         self._client = None
 
     def is_configured(self) -> bool:
@@ -32,7 +51,7 @@ class OpenAIProvider(AIProvider):
     def _get_client(self):
         if not self.is_configured():
             raise MissingAPIKeyError(
-                "OPENAI_API_KEY não configurada. Defina a variável de ambiente no arquivo .env."
+                f"{self.VAR_CHAVE} não configurada. Defina a variável de ambiente no arquivo .env."
             )
         if self._client is None:
             try:
@@ -41,7 +60,12 @@ class OpenAIProvider(AIProvider):
                 raise AIServiceUnavailableError(
                     "Biblioteca 'openai' não instalada. Rode: pip install -r requirements.txt"
                 ) from exc
-            self._client = OpenAI(api_key=self.api_key)
+            kwargs = {"api_key": self.api_key}
+            if self.BASE_URL:
+                kwargs["base_url"] = self.BASE_URL
+            if self.CABECALHOS:
+                kwargs["default_headers"] = self.CABECALHOS
+            self._client = OpenAI(**kwargs)
         return self._client
 
     def chat(self, messages: list[dict], tools: list[dict] | None = None) -> AIResponse:
@@ -59,11 +83,11 @@ class OpenAIProvider(AIProvider):
         try:
             completion = client.chat.completions.create(**kwargs)
         except Exception as exc:  # noqa: BLE001 - normalizamos qualquer falha de rede/API
-            logger.error("Falha ao chamar a API da OpenAI: %s", exc)
+            logger.error("Falha ao chamar a API de %s: %s", self.NOME, exc)
             message = str(exc)
             if "authentic" in message.lower() or "api key" in message.lower() or "401" in message:
                 raise MissingAPIKeyError(
-                    "A chave da API foi rejeitada pela OpenAI. Verifique se OPENAI_API_KEY está correta."
+                    f"A chave da API foi rejeitada pelo provedor {self.NOME}. Verifique se {self.VAR_CHAVE} está correta."
                 ) from exc
             raise AIServiceUnavailableError(
                 "Não foi possível contatar o provedor de IA no momento. Tente novamente em instantes."

@@ -3,9 +3,10 @@ N.A.S.H - Seleção do provedor de IA.
 
 O provedor é escolhido pela variável de ambiente AI_PROVIDER:
 
-    ollama  -> modelo local (padrão, gratuito, exige o Ollama rodando na máquina)
-    openai  -> API da OpenAI  (exige OPENAI_API_KEY)
-    gemini  -> API do Google  (exige GEMINI_API_KEY)
+    ollama      -> modelo local (padrão, gratuito, exige o Ollama na máquina)
+    openai      -> API da OpenAI          (exige OPENAI_API_KEY)
+    openrouter  -> catálogo do OpenRouter (exige OPENROUTER_API_KEY)
+    gemini      -> API do Google          (exige GEMINI_API_KEY)
 
 Os provedores são importados sob demanda, e não no topo do arquivo, porque
 cada um traz sua própria dependência (`requests`, `openai`, `google-genai`).
@@ -17,7 +18,7 @@ import logging
 logger = logging.getLogger("nash.ai.factory")
 
 DEFAULT_PROVIDER = "ollama"
-SUPPORTED_PROVIDERS = ("ollama", "openai", "gemini")
+SUPPORTED_PROVIDERS = ("ollama", "openai", "openrouter", "gemini")
 
 
 class UnknownProviderError(ValueError):
@@ -81,6 +82,10 @@ def build_provider():
         elif name == "openai":
             from backend.ai.openai_provider import OpenAIProvider
             provider = OpenAIProvider()
+
+        elif name == "openrouter":
+            from backend.ai.openrouter_provider import OpenRouterProvider
+            provider = OpenRouterProvider()
 
         else:  # gemini
             from backend.ai.gemini_provider import GeminiProvider

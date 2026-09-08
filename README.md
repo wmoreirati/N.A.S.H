@@ -12,8 +12,8 @@ alteram seus dados depois que você confirmar.
 ## 1. O que é o N.A.S.H
 
 Um assistente pessoal que roda na sua máquina (Flask + SQLite), conversa com um
-modelo de IA real — local via Ollama, ou pela API da OpenAI ou do Google Gemini,
-à sua escolha — e nunca finge ter feito algo que não fez: nem salvar uma memória,
+modelo de IA real — local via Ollama, ou pelas APIs da OpenAI, do OpenRouter ou
+do Google Gemini, à sua escolha — e nunca finge ter feito algo que não fez: nem salvar uma memória,
 nem conectar um serviço externo.
 
 ## 2. Recursos
@@ -51,7 +51,8 @@ nash/
 │   │   ├── provider.py           # Interface abstrata AIProvider
 │   │   ├── factory.py            # Escolhe o provedor conforme AI_PROVIDER
 │   │   ├── ollama_provider.py    # Modelo local (padrão)
-│   │   ├── openai_provider.py    # API da OpenAI
+│   │   ├── openai_provider.py    # API da OpenAI (e serviços compatíveis)
+│   │   ├── openrouter_provider.py # Catálogo do OpenRouter
 │   │   ├── gemini_provider.py    # API do Google Gemini
 │   │   ├── tools_schema.py       # Definição das ferramentas (function calling)
 │   │   └── agent.py              # Orquestrador: prompt + memória + histórico + tools
@@ -84,8 +85,9 @@ nash/
 - Um provedor de IA, à escolha (ver `AI_PROVIDER` na seção 7):
   - **Ollama** rodando na máquina — gratuito, sem chave, mas o modelo padrão é
     pequeno e não serve para ensinar exatas; ou
-  - uma **chave de API** da OpenAI ou do Google Gemini — paga por uso, e é o que
-    faz o modo professor funcionar de verdade.
+  - uma **chave de API** da OpenAI, do OpenRouter ou do Google Gemini — paga por
+    uso, e é o que faz o modo professor funcionar de verdade. O OpenRouter é o
+    caminho mais flexível: uma chave, centenas de modelos, troca por variável.
 
 O app sobe sem nenhum deles: o chat avisa que a IA está offline em vez de quebrar.
 
@@ -124,6 +126,8 @@ OLLAMA_BASE_URL=http://127.0.0.1:11434
 OLLAMA_MODEL=qwen3:1.7b
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
+OPENROUTER_API_KEY=
+OPENROUTER_MODEL=openai/gpt-5-nano
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.6-flash
 PORT=5000
@@ -133,10 +137,14 @@ MAX_HISTORY_MESSAGES=30
 ```
 
 - `AI_PROVIDER`: qual modelo responde no chat — `ollama` (local, gratuito),
-  `openai` ou `gemini`. Um valor desconhecido faz o servidor recusar iniciar,
-  em vez de cair silenciosamente em outro provedor.
+  `openai`, `openrouter` ou `gemini`. Um valor desconhecido faz o servidor
+  recusar iniciar, em vez de cair silenciosamente em outro provedor.
+  O `openrouter` dá acesso a centenas de modelos de fornecedores diferentes
+  com uma única chave; trocar de modelo vira mudar `OPENROUTER_MODEL`.
+  ⚠️ Nem todo modelo do catálogo suporta chamada de ferramentas, e sem isso
+  tarefas, projetos e memória param de funcionar pelo chat.
   ⚠️ O modelo local padrão é pequeno e **erra contas**. Para uso como professor
-  de exatas, use `openai` ou `gemini`.
+  de exatas, use `openrouter`, `openai` ou `gemini`.
 - Chave do provedor escolhido: sem ela, o chat funciona mas avisa que a IA
   está offline (`ollama` não precisa de chave).
 - `FLASK_SECRET_KEY`: recomendado gerar uma fixa com
@@ -320,8 +328,8 @@ Variáveis obrigatórias no painel (o `.env` não é enviado):
 | Variável | Observação |
 |---|---|
 | `DATABASE_URL` | string do pooler, porta 6543 |
-| `AI_PROVIDER` | `openai` ou `gemini` — **nunca `ollama`**, que não existe no servidor |
-| chave do provedor | `OPENAI_API_KEY` ou `GEMINI_API_KEY` |
+| `AI_PROVIDER` | `openrouter`, `openai` ou `gemini` — **nunca `ollama`**, que não existe no servidor |
+| chave do provedor | `OPENROUTER_API_KEY`, `OPENAI_API_KEY` ou `GEMINI_API_KEY` |
 | `FLASK_SECRET_KEY` | fixa; sem ela cada partida a frio gera uma nova |
 | `FLASK_DEBUG` | `0` |
 | `MAX_HISTORY_MESSAGES` | `30` |
