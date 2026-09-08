@@ -6,6 +6,7 @@ O provedor é escolhido pela variável de ambiente AI_PROVIDER:
     ollama      -> modelo local (padrão, gratuito, exige o Ollama na máquina)
     openai      -> API da OpenAI          (exige OPENAI_API_KEY)
     openrouter  -> catálogo do OpenRouter (exige OPENROUTER_API_KEY)
+    groq        -> Groq, camada gratuita (exige GROQ_API_KEY)
     gemini      -> API do Google          (exige GEMINI_API_KEY)
 
 Os provedores são importados sob demanda, e não no topo do arquivo, porque
@@ -18,7 +19,7 @@ import logging
 logger = logging.getLogger("nash.ai.factory")
 
 DEFAULT_PROVIDER = "ollama"
-SUPPORTED_PROVIDERS = ("ollama", "openai", "openrouter", "gemini")
+SUPPORTED_PROVIDERS = ("ollama", "openai", "openrouter", "groq", "gemini")
 
 
 class UnknownProviderError(ValueError):
@@ -86,6 +87,10 @@ def build_provider():
         elif name == "openrouter":
             from backend.ai.openrouter_provider import OpenRouterProvider
             provider = OpenRouterProvider()
+
+        elif name == "groq":
+            from backend.ai.groq_provider import GroqProvider
+            provider = GroqProvider()
 
         else:  # gemini
             from backend.ai.gemini_provider import GeminiProvider

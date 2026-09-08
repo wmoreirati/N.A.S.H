@@ -53,6 +53,7 @@ nash/
 │   │   ├── ollama_provider.py    # Modelo local (padrão)
 │   │   ├── openai_provider.py    # API da OpenAI (e serviços compatíveis)
 │   │   ├── openrouter_provider.py # Catálogo do OpenRouter
+│   │   ├── groq_provider.py      # Groq (gratuito, sem cartão)
 │   │   ├── gemini_provider.py    # API do Google Gemini
 │   │   ├── tools_schema.py       # Definição das ferramentas (function calling)
 │   │   └── agent.py              # Orquestrador: prompt + memória + histórico + tools
@@ -85,9 +86,10 @@ nash/
 - Um provedor de IA, à escolha (ver `AI_PROVIDER` na seção 7):
   - **Ollama** rodando na máquina — gratuito, sem chave, mas o modelo padrão é
     pequeno e não serve para ensinar exatas; ou
-  - uma **chave de API** da OpenAI, do OpenRouter ou do Google Gemini — paga por
-    uso, e é o que faz o modo professor funcionar de verdade. O OpenRouter é o
-    caminho mais flexível: uma chave, centenas de modelos, troca por variável.
+  - uma **chave de API**. Duas opções são gratuitas e **não pedem cartão**:
+    **Groq** (rápido, com ferramentas) e **Google Gemini** (camada gratuita
+    permanente). As pagas são OpenAI e OpenRouter — este último dá acesso a
+    centenas de modelos com uma chave só.
 
 O app sobe sem nenhum deles: o chat avisa que a IA está offline em vez de quebrar.
 
@@ -137,7 +139,7 @@ MAX_HISTORY_MESSAGES=30
 ```
 
 - `AI_PROVIDER`: qual modelo responde no chat — `ollama` (local, gratuito),
-  `openai`, `openrouter` ou `gemini`. Um valor desconhecido faz o servidor
+  `openai`, `openrouter`, `groq` ou `gemini`. Um valor desconhecido faz o servidor
   recusar iniciar, em vez de cair silenciosamente em outro provedor.
   O `openrouter` dá acesso a centenas de modelos de fornecedores diferentes
   com uma única chave; trocar de modelo vira mudar `OPENROUTER_MODEL`.
@@ -328,8 +330,8 @@ Variáveis obrigatórias no painel (o `.env` não é enviado):
 | Variável | Observação |
 |---|---|
 | `DATABASE_URL` | string do pooler, porta 6543 |
-| `AI_PROVIDER` | `openrouter`, `openai` ou `gemini` — **nunca `ollama`**, que não existe no servidor |
-| chave do provedor | `OPENROUTER_API_KEY`, `OPENAI_API_KEY` ou `GEMINI_API_KEY` |
+| `AI_PROVIDER` | `groq`, `gemini`, `openrouter` ou `openai` — **nunca `ollama`**, que não existe no servidor |
+| chave do provedor | `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY` ou `OPENAI_API_KEY` |
 | `FLASK_SECRET_KEY` | fixa; sem ela cada partida a frio gera uma nova |
 | `FLASK_DEBUG` | `0` |
 | `MAX_HISTORY_MESSAGES` | `30` |
