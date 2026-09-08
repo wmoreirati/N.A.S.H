@@ -1,0 +1,22 @@
+# Nada aqui pode subir para a Vercel.
+#
+# Importa especialmente quando o deploy é feito pela linha de comando
+# (`vercel --prod`), que envia o conteúdo da pasta local em vez de puxar do
+# Git — sem esta lista, os arquivos de segredo iriam junto.
+
+.env
+.env.vercel
+.env.local
+
+# Ambiente e banco locais
+.venv/
+instance/
+*.db
+__pycache__/
+*.pyc
+
+# Não fazem parte da aplicação
+N.A.S.H/
+tests/
+scripts/
+.git/
