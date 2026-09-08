@@ -286,3 +286,52 @@ respostas de erro sem vazamento de traceback.
 6. Veja a aba **Calendário** com uma tarefa que tenha data.
 7. Zere a chave do provedor escolhido e reinicie: o chat deve avisar que a IA está offline
    sem quebrar a interface.
+
+---
+
+## 17. Produção (Supabase + Vercel)
+
+O mesmo código roda em dois modos, decididos pela variável `DATABASE_URL`:
+ausente usa SQLite local; presente usa Postgres. Não há build separado.
+
+### Banco: Supabase
+
+Use sempre a string do **Transaction pooler (porta 6543)**, nunca a conexão
+direta (5432). Dois motivos independentes, e cada um sozinho quebra o deploy:
+
+1. Cada função serverless abre a própria conexão; a direta esgota o limite.
+2. A conexão direta do Supabase é IPv6 — sem o add-on pago de IPv4 ela não
+   conecta de vários ambientes. O pooler sempre entrega IPv4.
+
+O schema não é criado sozinho em Postgres. Rode uma vez:
+
+```
+python scripts/init_db.py
+```
+
+### Hospedagem: Vercel
+
+A Vercel detecta Flask pelo `requirements.txt` e usa `app.py` da raiz como
+entrypoint, carregando a variável de módulo `app`. Não é preciso `api/index.py`
+nem rewrites.
+
+Variáveis obrigatórias no painel (o `.env` não é enviado):
+
+| Variável | Observação |
+|---|---|
+| `DATABASE_URL` | string do pooler, porta 6543 |
+| `AI_PROVIDER` | `openai` ou `gemini` — **nunca `ollama`**, que não existe no servidor |
+| chave do provedor | `OPENAI_API_KEY` ou `GEMINI_API_KEY` |
+| `FLASK_SECRET_KEY` | fixa; sem ela cada partida a frio gera uma nova |
+| `FLASK_DEBUG` | `0` |
+| `MAX_HISTORY_MESSAGES` | `30` |
+
+**Nunca deixe uma variável cadastrada em branco.** Vazia não é o mesmo que
+ausente: o padrão do código só vale quando a variável não existe.
+
+### Diagnóstico
+
+`GET /api/health` responde sem consumir nenhum token de IA e informa provedor,
+modelo, banco e contadores. Se o provedor não tiver carregado, o motivo aparece
+no campo `ai_error` — é o caminho para diagnosticar o servidor sem depender do
+log da plataforma.
