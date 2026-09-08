@@ -6,7 +6,8 @@ psycopg[binary]==3.3.5
 
 # Provedores de IA — instale apenas o que for usar (ver AI_PROVIDER no .env).
 # O Ollama (padrão) não precisa de biblioteca própria, só de `requests`.
-openai==1.51.0
+# openai < 1.55 quebra com httpx >= 0.28 (passa "proxies=", que o httpx removeu).
+openai==3.8.0
 google-genai==2.22.0
 
 # Dependência de desenvolvimento (opcional, só para rodar tests/)
