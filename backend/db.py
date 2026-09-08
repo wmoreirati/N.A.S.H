@@ -76,8 +76,28 @@ def resolve_database_uri(app) -> str:
     if database_url:
         return _normalize_postgres_uri(database_url)
 
+    # Em ambiente serverless não existe disco gravável (só /tmp, que é
+    # descartado a cada instância). Cair no SQLite ali significaria perder
+    # todos os dados sem aviso — ou, mais provavelmente, quebrar já na
+    # criação da pasta. Melhor falhar dizendo exatamente o que falta.
+    if os.environ.get("VERCEL") or os.environ.get("AWS_LAMBDA_FUNCTION_NAME"):
+        raise RuntimeError(
+            "DATABASE_URL não está definida neste ambiente. "
+            "Em servidor o banco precisa ser Postgres — o SQLite exigiria disco "
+            "gravável, que não existe aqui. Cadastre DATABASE_URL nas variáveis "
+            "de ambiente do projeto (string do pooler do Supabase, porta 6543) "
+            "e publique de novo."
+        )
+
     db_path = os.path.join(app.instance_path, "nash.db")
-    os.makedirs(app.instance_path, exist_ok=True)
+    try:
+        os.makedirs(app.instance_path, exist_ok=True)
+    except OSError as exc:
+        raise RuntimeError(
+            f"Não foi possível criar a pasta do banco SQLite em "
+            f"'{app.instance_path}': {exc}. Se este é um ambiente sem disco "
+            "gravável, defina DATABASE_URL apontando para um Postgres."
+        ) from exc
     return f"sqlite:///{db_path}"
 
 
