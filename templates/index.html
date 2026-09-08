@@ -2,7 +2,13 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#05080d">
+<meta name="description" content="N.A.S.H — assistente pessoal de IA, parceiro de estudos e centro de comando.">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="N.A.S.H">
+<link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
 <title>N.A.S.H — Command Center</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <script>
@@ -86,11 +92,15 @@
       <div class="status-chip" id="chip-tasks" title="Tarefas ativas">
         <span class="dot on"></span><span id="chip-tasks-text">0 tarefas</span>
       </div>
-      <div class="status-chip" title="Horário local">
+      <div class="status-chip" id="chip-clock" title="Horário local">
         <span id="header-clock">--:--:--</span>
       </div>
       <button class="icon-btn" id="voice-output-toggle" title="Ativar/desativar leitura por voz das respostas">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 9v6h4l5 5V4L8 9H4z"/></svg>
+      </button>
+      <!-- Só aparece no mobile: abre o painel de status, que no desktop fica sempre visível à direita -->
+      <button class="icon-btn aside-toggle" id="aside-toggle" aria-label="Abrir painel de status" aria-expanded="false" aria-controls="aside">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 5h18M3 12h18M3 19h18"/></svg>
       </button>
     </div>
   </header>
@@ -144,7 +154,7 @@
             <button type="button" class="icon-btn" id="mic-btn" title="Falar (reconhecimento de voz)">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
             </button>
-            <textarea id="chat-input" rows="1" placeholder="Converse naturalmente com o N.A.S.H..."></textarea>
+            <textarea id="chat-input" rows="1" placeholder="Converse com o N.A.S.H..."></textarea>
             <button type="submit" class="icon-btn" id="send-btn" title="Enviar">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 12l16-8-6 16-3-7-7-1z"/></svg>
             </button>
@@ -351,6 +361,9 @@
       <div id="aside-connections"></div>
     </div>
   </aside>
+
+  <!-- Fundo escurecido atrás da gaveta de status; toque nele fecha -->
+  <div id="aside-backdrop"></div>
 
 </div>
 

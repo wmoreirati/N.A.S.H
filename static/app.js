@@ -827,7 +827,16 @@
       const data = await api("/api/health");
 
       const aiChip = $("#chip-ai");
-      $("#chip-ai-text").textContent = data.ai_configured ? `IA online (${data.ai_model})` : "IA offline";
+      // O nome do modelo vai num elemento proprio para o CSS poder escondê-lo
+      // no celular, onde o cabeçalho não tem largura para ele.
+      const chipAi = $("#chip-ai-text");
+      chipAi.textContent = data.ai_configured ? "IA online" : "IA offline";
+      if (data.ai_configured && data.ai_model) {
+        const modelo = document.createElement("span");
+        modelo.className = "chip-detail";
+        modelo.textContent = ` (${data.ai_model})`;
+        chipAi.appendChild(modelo);
+      }
       aiChip.querySelector(".dot").className = `dot ${data.ai_configured ? "on" : "off"}`;
 
       $("#chip-tasks-text").textContent = `${data.tasks_active} tarefa(s)`;
@@ -852,6 +861,45 @@
   }
 
   // ---------------------------------------------------------
+  // PAINEL DE STATUS (gaveta no mobile)
+  // ---------------------------------------------------------
+
+  // No desktop o painel fica fixo à direita. Em telas estreitas ele vira uma
+  // gaveta: sem isso, as informações de sistema e conexões simplesmente
+  // sumiriam do celular, que era o comportamento anterior.
+  function initAsideDrawer() {
+    const toggle = $("#aside-toggle");
+    const backdrop = $("#aside-backdrop");
+    if (!toggle) return;
+
+    function setOpen(open) {
+      document.body.classList.toggle("aside-open", open);
+      toggle.setAttribute("aria-expanded", String(open));
+      toggle.setAttribute("aria-label", open ? "Fechar painel de status" : "Abrir painel de status");
+    }
+
+    toggle.addEventListener("click", () => {
+      setOpen(!document.body.classList.contains("aside-open"));
+    });
+
+    if (backdrop) backdrop.addEventListener("click", () => setOpen(false));
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") setOpen(false);
+    });
+
+    // Trocar de aba fecha a gaveta — ela cobre o conteúdo que o usuário
+    // acabou de pedir para ver.
+    $$(".nav-btn").forEach((btn) => btn.addEventListener("click", () => setOpen(false)));
+
+    // Voltar para o desktop com a gaveta aberta deixaria o fundo escurecido
+    // preso sobre a interface.
+    window.matchMedia("(min-width: 981px)").addEventListener("change", (ev) => {
+      if (ev.matches) setOpen(false);
+    });
+  }
+
+  // ---------------------------------------------------------
   // INIT
   // ---------------------------------------------------------
 
@@ -866,6 +914,7 @@
     initClock();
     initSpeech();
     initVoiceOutputToggle();
+    initAsideDrawer();
     loadHistory();
     refreshStatus();
     setInterval(refreshStatus, 20000);

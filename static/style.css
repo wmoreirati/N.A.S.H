@@ -66,27 +66,31 @@ a { color: var(--cyan); }
 
 /* ---------- Shell ---------- */
 
+/* `1fr` equivale a `minmax(auto, 1fr)`, e esse `auto` impede a coluna de
+   encolher abaixo do conteudo — um cabecalho largo estica o grid inteiro e o
+   excesso e cortado pelo overflow:hidden do body. `minmax(0, 1fr)` permite
+   encolher; o `min-width: 0` nos filhos faz o mesmo dentro de flex. */
 #app-shell {
   display: grid;
-  grid-template-columns: 208px 1fr 300px;
-  grid-template-rows: 64px 1fr;
+  grid-template-columns: 208px minmax(0, 1fr) 300px;
+  grid-template-rows: 64px minmax(0, 1fr);
   grid-template-areas:
     "sidebar header  header"
     "sidebar main    aside";
   height: 100vh;
-  width: 100vw;
+  height: 100dvh;  /* no celular, desconta a barra de endereco do navegador */
+  width: 100%;
 }
 
 @media (max-width: 980px) {
   #app-shell {
-    grid-template-columns: 1fr;
-    grid-template-rows: 56px 1fr auto;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) auto;
     grid-template-areas:
       "header"
       "main"
       "sidebar";
   }
-  #aside { display: none; }
 }
 
 /* ---------- Header ---------- */
@@ -667,3 +671,264 @@ body::after {
 
 /* ---------- Scrollable containers common ---------- */
 .scrollable { overflow-y: auto; }
+
+/* ============================================================
+   RESPONSIVO — web e mobile
+   ============================================================
+   Ordem: correcoes estruturais, depois tablet, depois celular.
+   Fica no fim do arquivo de proposito: as regras abaixo precisam
+   vencer as anteriores sem depender de aumentar especificidade.
+   ============================================================ */
+
+/* ---------- Estrutural: deixar tudo poder encolher ---------- */
+
+#header, #sidebar, #main, #aside { min-width: 0; }
+#header > *, #header-status { min-width: 0; }
+
+/* Nada de texto estourando a caixa: quebra em qualquer lugar se preciso */
+.msg-bubble, .item-title, .item-desc, .dash-text, .stat-row, .conn-row {
+  overflow-wrap: anywhere;
+}
+
+/* Conteudo largo (tabelas, codigo) rola dentro de si, nunca empurra a pagina */
+.msg-bubble pre, .msg-bubble table {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* ---------- Painel de status como gaveta no mobile ---------- */
+
+#aside-backdrop { display: none; }
+
+.aside-toggle { display: none; }
+
+/* ---------- Tablet e abaixo ---------- */
+
+@media (max-width: 980px) {
+
+  /* Cabecalho compacto: o subtitulo e o relogio saem, o essencial fica */
+  #header {
+    padding: 8px 12px;
+    gap: 10px;
+    height: auto;
+    min-height: 52px;
+  }
+  .brand-subtitle { display: none; }
+  .brand-wordmark { font-size: 16px; letter-spacing: 2px; }
+  .brand { gap: 8px; flex: 0 1 auto; overflow: hidden; }
+
+  #header-status { gap: 6px; flex: 0 1 auto; overflow: hidden; }
+  #header-status .status-chip { padding: 4px 8px; font-size: 12px; flex: 0 1 auto; }
+  #header-status .status-chip span:not(.dot) {
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* O relogio nao paga o espaco que ocupa numa tela estreita.
+     Esconder a pilula inteira, nao so o texto: so o texto deixaria
+     uma casca vazia visivel ao lado dos outros chips. */
+  #chip-clock { display: none; }
+
+  .aside-toggle { display: flex; }
+
+  /* Barra de abas inferior: rola na horizontal, sem barra visivel,
+     e respeita a faixa do indicador de home do iPhone */
+  #sidebar {
+    grid-area: sidebar;
+    flex-direction: row;
+    align-items: stretch;
+    gap: 2px;
+    padding: 4px 6px;
+    padding-bottom: calc(4px + env(safe-area-inset-bottom));
+    border-right: none;
+    border-top: 1px solid var(--border);
+    background: var(--bg-alt);
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #sidebar::-webkit-scrollbar { display: none; }
+
+  .sidebar-brand, .sidebar-version { display: none; }
+  .sidebar-nav { flex-direction: row; flex: none; gap: 2px; }
+  .sidebar-footer { flex-direction: row; padding-top: 0; border-top: none; margin: 0; }
+
+  .nav-btn {
+    flex-direction: column;
+    justify-content: center;
+    width: auto;
+    min-width: 60px;
+    height: 52px;           /* alvo de toque confortavel */
+    padding: 6px 10px;
+    font-size: 10px;
+    gap: 3px;
+    white-space: nowrap;
+  }
+
+  #main { padding: 12px; }
+
+  /* Gaveta de status: entra pela direita, cobre a tela em telas estreitas */
+  #aside {
+    display: flex;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: min(320px, 86vw);
+    z-index: 60;
+    border-left: 1px solid var(--border-bright);
+    box-shadow: -12px 0 32px rgba(0, 0, 0, 0.5);
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+    padding-top: calc(16px + env(safe-area-inset-top));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  }
+  body.aside-open #aside { transform: translateX(0); }
+
+  #aside-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.55);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.22s ease;
+  }
+  body.aside-open #aside-backdrop { opacity: 1; pointer-events: auto; }
+
+  /* Balao de conversa pode usar quase toda a largura */
+  .msg { max-width: 92%; }
+
+  /* Toast ocupa a largura, acima da barra de abas */
+  #toast-area {
+    left: 12px;
+    right: 12px;
+    bottom: calc(64px + env(safe-area-inset-bottom));
+  }
+}
+
+/* ---------- Celular ---------- */
+
+@media (max-width: 560px) {
+
+  #main { padding: 10px; }
+
+  /* O nucleo decorativo e bonito, mas no celular ele rouba a altura
+     que o conteudo precisa. Sai da Central em telas baixas. */
+  .core-big { display: none; }
+  .dash-card-main { flex-direction: column; align-items: flex-start; }
+
+  .dash-title { font-size: 17px; }
+  .dash-text { font-size: 13px; }
+  .dash-stat { font-size: 22px; }
+
+  .panel-header { padding: 10px 12px; font-size: 12px; }
+  .dash-card { padding: 13px 14px; }
+
+  #chat-scroll { padding: 12px; gap: 12px; }
+  .msg { max-width: 96%; }
+  .msg-avatar { display: none; }
+
+  .suggestion-row { padding: 0 12px 8px; }
+  .suggestion-chip { font-size: 12px; }
+
+  .list-toolbar { gap: 6px; }
+  .item-card { padding: 12px; }
+
+  /* Formularios em coluna: dois campos lado a lado nao cabem */
+  .inline-form .row { flex-direction: column; align-items: stretch; }
+  .inline-form .row > * { width: 100%; }
+}
+
+/* ---------- Toque e entrada de texto ---------- */
+
+@media (pointer: coarse) {
+  /* Abaixo de 16px o Safari do iPhone da zoom sozinho ao focar o campo,
+     e a pagina fica torta. 16px e o minimo que evita isso. */
+  #composer textarea,
+  input[type="text"], input[type="date"], input[type="time"],
+  input[type="number"], select, textarea {
+    font-size: 16px;
+  }
+
+  /* Alvos de toque: 44px e o minimo recomendado para o dedo */
+  .icon-btn { width: 44px; height: 44px; }
+  .btn { min-height: 40px; }
+  .nav-btn { min-height: 48px; }
+}
+
+/* ---------- Movimento reduzido ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+  .core-ring, .core-orbit { animation: none !important; }
+}
+
+/* ---------- Foco visivel (navegacao por teclado) ---------- */
+
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* ---------- Ajustes finos vistos no aparelho ---------- */
+
+@media (max-width: 980px) {
+  /* O cabecalho precisa poder encolher de verdade, nao so cortar */
+  #header-status {
+    flex: 1 1 auto;
+    justify-content: flex-end;
+    min-width: 0;
+    overflow: visible;
+  }
+  #header-status .status-chip { min-width: 0; }
+  .brand { flex: 0 0 auto; }
+}
+
+@media (max-width: 560px) {
+  /* Prioridade no cabecalho de celular: identidade, estado da IA e o menu.
+     O resto tem lugar proprio — contador na Central, voz nos Ajustes. */
+  .chip-detail { display: none; }
+  #chip-tasks { display: none; }
+  #voice-output-toggle { display: none; }
+  .brand-wordmark { font-size: 15px; letter-spacing: 1.5px; }
+
+  /* Os tres cartoes da Central viram uma faixa que rola na horizontal.
+     Empilhados, eles empurravam o chat para fora da tela — e o chat e o
+     motivo pelo qual a pessoa abriu o aplicativo. */
+  .dashboard-row {
+    display: flex;
+    grid-template-columns: none;
+    gap: 8px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    margin-bottom: 8px;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+  .dashboard-row::-webkit-scrollbar { display: none; }
+  .dashboard-row > .dash-card {
+    flex: 0 0 80%;
+    min-width: 0;
+    scroll-snap-align: start;
+  }
+
+  /* Sugestoes em linha unica rolavel, em vez de cinco linhas empilhadas */
+  .suggestion-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scrollbar-width: none;
+  }
+  .suggestion-row::-webkit-scrollbar { display: none; }
+  .suggestion-chip { flex: 0 0 auto; scroll-snap-align: start; }
+
+  /* O campo de texto precisa poder encolher dentro do composer */
+  #composer { padding: 8px; gap: 6px; }
+  #composer textarea { min-width: 0; padding: 8px 4px; }
+}
