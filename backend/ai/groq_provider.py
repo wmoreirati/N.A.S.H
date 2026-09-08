@@ -25,5 +25,5 @@ class GroqProvider(OpenAIProvider):
     NOME = "Groq"
     VAR_CHAVE = "GROQ_API_KEY"
     VAR_MODELO = "GROQ_MODEL"
-    MODELO_PADRAO = "llama-3.3-70b-versatile"
+    MODELO_PADRAO = "openai/gpt-oss-120b"
     BASE_URL = "https://api.groq.com/openai/v1"
