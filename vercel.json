@@ -4,7 +4,7 @@
   "functions": {
     "app.py": {
       "maxDuration": 60,
-      "excludeFiles": "{tests/**,scripts/**,instance/**,.venv/**,**/__pycache__/**,**/*.pyc}"
+      "excludeFiles": "{tests/**,scripts/**,instance/**}"
     }
   }
 }

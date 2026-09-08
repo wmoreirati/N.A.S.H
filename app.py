@@ -117,6 +117,9 @@ def _register_routes(app: Flask):
             "ai_provider": get_provider_name(),
             "ai_configured": ai_provider.is_configured(),
             "ai_model": ai_provider.model if ai_provider.is_configured() else None,
+            # Preenchido só quando o provedor não pôde ser carregado — é o que
+            # permite diagnosticar o servidor sem precisar do log da plataforma.
+            "ai_error": getattr(ai_provider, "motivo", None),
             "max_history_messages": _history_limit(),
             "tasks_active": tasks_mod.count_active_tasks(),
             "memories_count": len(memory_mod.list_memories()),

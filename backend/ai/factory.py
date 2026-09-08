@@ -25,6 +25,33 @@ class UnknownProviderError(ValueError):
     pass
 
 
+class UnavailableProvider:
+    """
+    Substituto usado quando o provedor configurado não pôde ser carregado —
+    biblioteca ausente, incompatível, ou erro na construção.
+
+    Existe para que uma falha do provedor de IA não derrube a aplicação
+    inteira. Sem isso, um erro de importação em produção vira um crash na
+    subida do processo, e o usuário perde tarefas, projetos e interface por
+    causa do chat. Com isso, o site continua de pé e o motivo real aparece
+    em /api/health e na mensagem do chat.
+    """
+
+    def __init__(self, nome: str, motivo: str):
+        self.nome = nome
+        self.motivo = motivo
+        self.model = None
+
+    def is_configured(self) -> bool:
+        return False
+
+    def chat(self, messages, tools=None):
+        from backend.ai.provider import AIServiceUnavailableError
+        raise AIServiceUnavailableError(
+            f"O provedor de IA '{self.nome}' não pôde ser carregado neste servidor: {self.motivo}"
+        )
+
+
 def get_provider_name() -> str:
     """Nome do provedor configurado, normalizado."""
     return (os.environ.get("AI_PROVIDER") or DEFAULT_PROVIDER).strip().lower()
@@ -46,17 +73,24 @@ def build_provider():
             f"Use um de: {', '.join(SUPPORTED_PROVIDERS)}."
         )
 
-    if name == "ollama":
-        from backend.ai.ollama_provider import OllamaProvider
-        provider = OllamaProvider()
+    try:
+        if name == "ollama":
+            from backend.ai.ollama_provider import OllamaProvider
+            provider = OllamaProvider()
 
-    elif name == "openai":
-        from backend.ai.openai_provider import OpenAIProvider
-        provider = OpenAIProvider()
+        elif name == "openai":
+            from backend.ai.openai_provider import OpenAIProvider
+            provider = OpenAIProvider()
 
-    else:  # gemini
-        from backend.ai.gemini_provider import GeminiProvider
-        provider = GeminiProvider()
+        else:  # gemini
+            from backend.ai.gemini_provider import GeminiProvider
+            provider = GeminiProvider()
+
+    except Exception as exc:  # noqa: BLE001
+        # Nunca deixar o chat derrubar o resto da aplicação: sem isso, uma
+        # biblioteca ausente ou incompatível impede o processo de subir.
+        logger.exception("Falha ao carregar o provedor de IA '%s'", name)
+        return UnavailableProvider(name, f"{type(exc).__name__}: {exc}")
 
     logger.info(
         "Provedor de IA: %s (modelo: %s, configurado: %s)",
