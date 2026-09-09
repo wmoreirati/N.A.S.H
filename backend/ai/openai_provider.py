@@ -15,6 +15,7 @@ from backend.ai.provider import (
     ToolCall,
     MissingAPIKeyError,
     AIServiceUnavailableError,
+    ModelWantedToolError,
 )
 
 logger = logging.getLogger("nash.ai.openai")
@@ -81,6 +82,15 @@ class OpenAIProvider(AIProvider):
             codigo = int(codigo) if codigo is not None else None
         except (TypeError, ValueError):
             codigo = None
+
+        # O modelo quis usar ferramenta numa chamada que nao ofereceu nenhuma.
+        # Nao e falha do provedor nem da chave: e uma aposta errada do agente,
+        # e da para refazer. Precisa vir antes das demais regras porque tambem
+        # e 400 e cairia numa mensagem generica.
+        if "tool_use_failed" in m or "tool choice is none" in m:
+            raise ModelWantedToolError(
+                "O modelo tentou usar uma ferramenta que não foi oferecida nesta chamada."
+            ) from origem
 
         if codigo in (401, 403) or "api key" in m or "authentic" in m or "user not found" in m:
             raise MissingAPIKeyError(

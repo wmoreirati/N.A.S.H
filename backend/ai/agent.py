@@ -30,7 +30,7 @@ import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from backend.ai.provider import AIProviderError
+from backend.ai.provider import AIProviderError, ModelWantedToolError
 from backend.ai.tools_schema import get_tools_schema
 from backend.security import permissions
 from backend.security.audit import log_action
@@ -1734,6 +1734,31 @@ def run_chat_turn(
                 messages,
                 tools=tools_schema
             )
+
+        except ModelWantedToolError as exc:
+
+            # A aposta de "esta mensagem nao pede acao" foi por palavra-chave,
+            # e o modelo discordou. Sem tratamento, um simples "ola" morre com
+            # 400 e o erro cru da API aparece na tela.
+            #
+            # Refaz UMA vez oferecendo o catalogo. Se ja havia ferramentas na
+            # chamada, o problema e outro e insistir so gastaria tokens.
+            if tools_schema:
+                return {
+                    "type": "error",
+                    "text": str(exc),
+                }
+
+            tools_schema = list(get_tools_schema()) + externos
+            known_tool_names = {
+                tool["function"]["name"]
+                for tool in tools_schema
+            }
+            logger.info(
+                "Modelo pediu ferramenta sem que houvesse: refazendo com %d ferramenta(s).",
+                len(tools_schema),
+            )
+            continue
 
         except AIProviderError as exc:
 

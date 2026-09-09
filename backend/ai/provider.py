@@ -23,6 +23,23 @@ class AIServiceUnavailableError(AIProviderError):
     pass
 
 
+class ModelWantedToolError(AIProviderError):
+    """
+    O modelo tentou chamar uma ferramenta numa requisição que não ofereceu
+    nenhuma, e o provedor recusou a resposta inteira.
+
+    Acontece porque o agente só manda o catálogo de ferramentas quando a
+    mensagem parece pedir ação — economia que existe para caber no teto de
+    tokens por minuto da camada gratuita. Quando o modelo discorda dessa
+    aposta, o pedido morre com 400 em vez de virar uma resposta.
+
+    É um erro RECUPERÁVEL: basta repetir a chamada oferecendo as ferramentas.
+    Por isso tem tipo próprio -- quem chama precisa distinguir isto de uma
+    falha real do provedor.
+    """
+    pass
+
+
 @dataclass
 class ToolCall:
     id: str
