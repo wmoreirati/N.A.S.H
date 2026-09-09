@@ -16,3 +16,7 @@ N.A.S.H/
 # Notas de trabalho da sessao (handoff, relatorios). Sao sobre o processo,
 # nao sobre o produto -- nao pertencem ao repositorio do dono do projeto.
 .memoria/
+
+# Agentes e worktrees do Claude Code. Mesmo criterio do .memoria/:
+# ferramenta de construcao, nao produto do dono do projeto.
+.claude/
