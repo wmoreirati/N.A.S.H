@@ -42,6 +42,9 @@
   let reconhecedor = null;
   let escutando = false;
   let aberto = false;
+  // Ultimo codigo de erro do reconhecimento, para o modo poder explicar o que
+  // houve em vez de dizer so "falhou".
+  let ultimoErroDeEscuta = null;
 
   // Áudio para a animação — tudo opcional, ver cabeçalho.
   let contextoAudio = null;
@@ -342,13 +345,47 @@
 
     r.onerror = (evento) => {
       escutando = false;
+      const codigo = evento.error || "desconhecido";
+
       const motivo = {
-        "not-allowed": "Permissão de microfone negada.",
-        "service-not-allowed": "Permissão de microfone negada.",
-        "no-speech": "Não ouvi nada. Toque para tentar de novo.",
-        "audio-capture": "Nenhum microfone encontrado.",
-      }[evento.error] || "Falha no reconhecimento de voz.";
-      definirEstado(motivo, "erro");
+        "not-allowed":
+          "Permissão de microfone negada. Libere o microfone para este site.",
+        "service-not-allowed":
+          "O navegador bloqueou o serviço de voz. Libere o microfone para este site.",
+        "no-speech":
+          "Não ouvi nada. Toque para tentar de novo.",
+        "audio-capture":
+          "Nenhum microfone disponível.",
+        // No Chrome de computador o reconhecimento NAO e local: o audio vai
+        // para um servico do Google. Rede bloqueada, offline ou proxy que
+        // intercepta TLS derrubam a transcricao sem tocar no microfone.
+        "network":
+          "O serviço de voz do navegador não respondeu (rede ou proxy). " +
+          "Dá para escrever normalmente enquanto isso.",
+        "aborted":
+          "A escuta foi interrompida. Toque para tentar de novo.",
+        "language-not-supported":
+          "Este navegador não reconhece português.",
+      }[codigo];
+
+      // Sem mensagem conhecida, mostra o CODIGO. Antes aqui havia um texto
+      // generico que jogava fora a unica informacao util: o app sabia o que
+      // tinha acontecido e nao contava para ninguem, deixando o problema
+      // impossivel de diagnosticar por quem estava usando.
+      definirEstado(motivo || `Falha no reconhecimento de voz (${codigo}).`, "erro");
+      ultimoErroDeEscuta = codigo;
+      console.warn("[N.A.S.H voz] erro de reconhecimento:", codigo, evento);
+
+      // "aborted" e "audio-capture" costumam ser disputa pelo microfone: a
+      // animacao do orbe mantem um getUserMedia aberto em paralelo. Solta o
+      // microfone e tenta UMA vez sem a animacao -- ouvir importa mais do que
+      // o orbe pulsar.
+      if ((codigo === "aborted" || codigo === "audio-capture") && analisador) {
+        desligarAnalisadorDeVolume();
+        orbe.classList.add("sem-volume");
+        definirEstado("Tentando de novo sem a animação…", "");
+        setTimeout(() => { if (aberto) alternarEscuta(); }, 400);
+      }
     };
 
     r.onend = () => {
