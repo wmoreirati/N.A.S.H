@@ -11,6 +11,7 @@
 <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
 <title>N.A.S.H — Command Center</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='voz.css') }}">
 <script>
   window.MathJax = {
     tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
@@ -66,9 +67,22 @@
     </div>
 
     <div class="sidebar-footer">
+      <!-- Só o administrador vê. O botão nasce oculto e o app.js o revela
+           depois de confirmar o perfil no servidor — a autorização de verdade
+           é a da API; isto aqui é só não mostrar porta que não abre. -->
+      <button class="nav-btn" data-view="acessos" id="nav-acessos" hidden
+              title="Acessos" aria-label="Liberar acessos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
+        Acessos
+        <span class="badge-pendentes" id="badge-pendentes" hidden>0</span>
+      </button>
       <button class="nav-btn" data-view="settings" title="Ajustes" aria-label="Configurações">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6V20a2 2 0 1 1-4 0v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.6-1H4a2 2 0 1 1 0-4h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H10a1.7 1.7 0 0 0 1-1.6V4a2 2 0 1 1 4 0v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V10a1.7 1.7 0 0 0 1.6 1H20a2 2 0 1 1 0 4h-.2a1.7 1.7 0 0 0-1.6 1z"/></svg>
         Ajustes
+      </button>
+      <button class="nav-btn" id="btn-sair" title="Sair" aria-label="Encerrar sessão">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M15 17v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v2"/><path d="M18 15l3-3-3-3M21 12H9"/></svg>
+        Sair
       </button>
       <div class="sidebar-version">v1.0 · local</div>
     </div>
@@ -350,6 +364,21 @@
       </div>
     </section>
 
+    <!-- ---- ACESSOS (somente administrador) ---- -->
+    <section class="view" id="view-acessos">
+      <div class="panel list-view" style="flex:1; min-height:0; padding: 14px;">
+        <div class="panel-header" style="border:none; padding:0;">
+          <span>Pedidos de acesso</span>
+        </div>
+        <p class="item-desc" style="margin: 10px 0 14px;">
+          Ninguém entra no N.A.S.H sem liberação sua. Aprovar dá à pessoa um
+          espaço próprio — tarefas, memórias e conversas separadas das suas.
+          As contas conectadas (Gmail, Agenda, Drive) continuam só com você.
+        </p>
+        <div id="lista-acessos"></div>
+      </div>
+    </section>
+
   </main>
 
   <!-- ===================== ASIDE (status) ===================== -->
@@ -372,8 +401,43 @@
 
 </div>
 
+<!-- ===================== MODO VOZ ===================== -->
+<!-- Abre pelo núcleo (logo) do cabeçalho. Fica fora de #app-shell de
+     propósito: é uma tela cheia por cima de tudo, não mais uma "view". -->
+<div id="voz-overlay" hidden aria-hidden="true" role="dialog" aria-modal="true"
+     aria-label="Conversa por voz com o N.A.S.H">
+
+  <button class="voz-fechar" id="voz-fechar" aria-label="Fechar conversa por voz">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 6 6 18M6 6l12 12"/></svg>
+  </button>
+
+  <div class="voz-palco">
+    <!-- O anel externo escala com o volume do microfone; o miolo pulsa
+         quando o N.A.S.H fala. -->
+    <div class="voz-orbe" id="voz-orbe">
+      <div class="voz-anel a1"></div>
+      <div class="voz-anel a2"></div>
+      <div class="voz-anel a3"></div>
+      <div class="voz-nucleo"></div>
+    </div>
+  </div>
+
+  <div class="voz-legenda">
+    <div class="voz-estado" id="voz-estado">Toque para falar</div>
+    <div class="voz-transcricao" id="voz-transcricao" aria-live="polite"></div>
+  </div>
+
+  <div class="voz-controles">
+    <button class="voz-botao" id="voz-microfone" aria-label="Falar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+    </button>
+  </div>
+
+</div>
+
 <div id="toast-area"></div>
 
 <script src="{{ url_for('static', filename='app.js') }}"></script>
+<script src="{{ url_for('static', filename='voz.js') }}"></script>
 </body>
 </html>

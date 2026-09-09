@@ -1,0 +1,174 @@
+/* ============================================================
+   N.A.S.H — Modo de conversa por voz (tela cheia) e painel de acessos.
+   Usa os tokens de style.css; nada de cor solta aqui.
+   ============================================================ */
+
+/* ---------- Aviso de pedidos de acesso aguardando ---------- */
+
+.badge-pendentes {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--amber);
+  color: #1a0d02;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 600;
+  text-align: center;
+}
+.badge-pendentes[hidden] { display: none !important; }
+
+body.voz-ativa { overflow: hidden; }
+
+#voz-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  justify-items: center;
+  padding: max(16px, env(safe-area-inset-top)) 16px
+           max(20px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(closest-side at 50% 45%, rgba(47,111,237,.16), transparent 70%),
+    #02050a;
+  animation: voz-entrada .22s ease-out;
+}
+
+#voz-overlay[hidden] { display: none !important; }
+
+@keyframes voz-entrada { from { opacity: 0; } to { opacity: 1; } }
+
+.voz-fechar {
+  justify-self: end;
+  width: 42px; height: 42px;
+  display: grid; place-items: center;
+  background: transparent; color: var(--text-muted);
+  border: 1px solid var(--border); border-radius: 50%;
+  cursor: pointer;
+}
+.voz-fechar:hover { color: var(--text); border-color: var(--border-bright); }
+.voz-fechar svg { width: 20px; height: 20px; }
+
+/* ---------- O orbe ---------- */
+
+.voz-palco {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 0;
+}
+
+.voz-orbe {
+  --intensidade: 1;           /* atualizado pelo volume do microfone */
+  position: relative;
+  width: min(62vw, 300px);
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transform: scale(var(--intensidade));
+  transition: transform .08s linear;
+}
+
+.voz-anel {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--cyan-dim);
+  opacity: .5;
+}
+.voz-anel.a1 { inset: 0;   border-color: rgba(47,111,237,.30); }
+.voz-anel.a2 { inset: 12%; border-color: rgba(91,155,255,.42); }
+.voz-anel.a3 { inset: 24%; border-color: rgba(91,155,255,.26); border-style: dashed; }
+
+.voz-nucleo {
+  width: 42%; aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #7fb2ff, var(--cyan) 55%, var(--cyan-dim));
+  box-shadow: 0 0 40px rgba(47,111,237,.55), inset 0 0 24px rgba(255,255,255,.18);
+}
+
+/* Rotação contínua dá vida sem depender do microfone. */
+.voz-anel.a1 { animation: voz-girar 18s linear infinite; }
+.voz-anel.a3 { animation: voz-girar 11s linear infinite reverse; }
+@keyframes voz-girar { to { transform: rotate(360deg); } }
+
+/* Estados */
+.voz-orbe.ouvindo .voz-anel.a2 { border-color: var(--green); opacity: .9; }
+.voz-orbe.ouvindo .voz-nucleo {
+  background: radial-gradient(circle at 35% 30%, #9df5d2, var(--green) 55%, #16a575);
+  box-shadow: 0 0 46px rgba(53,226,160,.55), inset 0 0 24px rgba(255,255,255,.18);
+}
+.voz-orbe.pensando .voz-anel.a3 { animation-duration: 2.6s; }
+.voz-orbe.falando .voz-nucleo { animation: voz-pulsar 1.05s ease-in-out infinite; }
+.voz-orbe.erro .voz-anel.a2 { border-color: var(--red); }
+.voz-orbe.erro .voz-nucleo {
+  background: radial-gradient(circle at 35% 30%, #ff9db0, var(--red) 60%, #b3243c);
+  box-shadow: 0 0 40px rgba(255,84,112,.45);
+}
+
+/* Sem permissão de microfone o orbe pulsa por tempo, não por volume. */
+.voz-orbe.sem-volume .voz-nucleo { animation: voz-pulsar 2.4s ease-in-out infinite; }
+
+@keyframes voz-pulsar {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.09); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voz-anel, .voz-nucleo { animation: none !important; }
+  .voz-orbe { transition: none; }
+}
+
+/* ---------- Texto ---------- */
+
+.voz-legenda {
+  text-align: center;
+  max-width: 640px;
+  padding: 0 8px 4px;
+}
+
+.voz-estado {
+  font-family: var(--font-ui);
+  font-size: .95rem;
+  font-weight: 600;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.voz-transcricao {
+  margin-top: 10px;
+  min-height: 3.2em;
+  max-height: 30vh;
+  overflow-y: auto;
+  font-size: 1.02rem;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+/* ---------- Controles ---------- */
+
+.voz-controles { padding-top: 14px; }
+
+.voz-botao {
+  width: 66px; height: 66px;
+  display: grid; place-items: center;
+  background: var(--panel-2);
+  color: var(--text);
+  border: 1px solid var(--border-bright);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: var(--glow-cyan);
+}
+.voz-botao:hover { border-color: var(--cyan); }
+.voz-botao:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+.voz-botao svg { width: 26px; height: 26px; }
+
+/* Telas baixas (celular deitado): encolhe o orbe para não cortar o texto. */
+@media (max-height: 560px) {
+  .voz-orbe { width: min(34vh, 190px); }
+  .voz-transcricao { max-height: 22vh; }
+}

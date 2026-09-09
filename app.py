@@ -9,7 +9,7 @@ Ver README.md para instruções completas de instalação e configuração.
 import os
 import logging
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, jsonify, redirect, render_template, request, url_for
 from dotenv import load_dotenv
 
 load_dotenv()  # carrega OPENAI_API_KEY, FLASK_SECRET_KEY etc. do arquivo .env
@@ -75,6 +75,7 @@ def _register_routes(app: Flask):
     from backend.tools import connections as connections_mod
     from backend.tools import calendar as calendar_mod
     from backend.memory import memory as memory_mod
+    from backend.security import auth
     from backend.security.audit import log_action
     from backend.security.validation import ValidationError
 
@@ -97,7 +98,8 @@ def _register_routes(app: Flask):
 
     def _recent_history() -> list[dict]:
         msgs = (
-            Message.query.filter(Message.role.in_(["user", "assistant"]))
+            auth.escopar(Message.query, Message)
+            .filter(Message.role.in_(["user", "assistant"]))
             .order_by(Message.created_at.desc())
             .limit(_history_limit())
             .all()
@@ -106,7 +108,7 @@ def _register_routes(app: Flask):
         return [{"role": m.role, "content": m.content} for m in msgs]
 
     def _save_message(role: str, content: str):
-        db.session.add(Message(role=role, content=content))
+        db.session.add(auth.marcar_dono(Message(role=role, content=content)))
         db.session.commit()
 
     def _json_error(message: str, status: int = 400):
@@ -126,6 +128,115 @@ def _register_routes(app: Flask):
         except LookupError as exc:
             log_action(action, detail=str(exc), permission=permission, success=False)
             return None, (str(exc), 404)
+
+    # -----------------------------------------------------------------
+    # Porta de entrada
+    # -----------------------------------------------------------------
+
+    # Único conjunto de rotas alcançável sem sessão. A lista é de endpoints,
+    # não de caminhos, e o guard abaixo NEGA tudo que não estiver aqui — de
+    # modo que uma rota nova nasce protegida por esquecimento, não exposta.
+    ROTAS_PUBLICAS = {
+        "static",
+        "pagina_login",
+        "api_registrar",
+        "api_login",
+        "api_eu",
+        "api_logout",
+    }
+
+    @app.before_request
+    def exigir_sessao():
+        if request.endpoint in ROTAS_PUBLICAS or request.endpoint is None:
+            return None
+        if auth.usuario_atual():
+            return None
+        # Navegador pedindo página vai para a tela de login; chamada de API
+        # recebe 401 para o front tratar sem redirecionar em segundo plano.
+        if request.path.startswith("/api/"):
+            return jsonify({"ok": False, "error": "Faça login para continuar."}), 401
+        return redirect(url_for("pagina_login"))
+
+    @app.route("/login")
+    def pagina_login():
+        if auth.usuario_atual():
+            return redirect(url_for("index"))
+        return render_template("login.html")
+
+    @app.route("/api/auth/registrar", methods=["POST"])
+    def api_registrar():
+        dados = request.get_json(silent=True) or {}
+        try:
+            usuario = auth.registrar(
+                email=dados.get("email", ""),
+                senha=dados.get("senha", ""),
+                nome=dados.get("nome", ""),
+            )
+        except auth.AuthError as exc:
+            return _json_error(exc.mensagem, exc.status)
+
+        log_action("auth.registrar", detail=usuario.email, permission="READ", success=True)
+        if usuario.aprovado:
+            auth.iniciar_sessao(usuario)
+            return jsonify({"ok": True, "usuario": usuario.to_dict(), "liberado": True})
+        return jsonify({
+            "ok": True,
+            "liberado": False,
+            "mensagem": "Pedido enviado. Você poderá entrar assim que o "
+                        "administrador liberar o seu acesso.",
+        })
+
+    @app.route("/api/auth/login", methods=["POST"])
+    def api_login():
+        dados = request.get_json(silent=True) or {}
+        try:
+            usuario = auth.autenticar(dados.get("email", ""), dados.get("senha", ""))
+        except auth.AuthError as exc:
+            log_action("auth.login", detail=exc.mensagem, permission="READ", success=False)
+            return _json_error(exc.mensagem, exc.status)
+
+        auth.iniciar_sessao(usuario)
+        log_action("auth.login", detail=usuario.email, permission="READ", success=True)
+        return jsonify({"ok": True, "usuario": usuario.to_dict()})
+
+    @app.route("/api/auth/logout", methods=["POST"])
+    def api_logout():
+        auth.encerrar_sessao()
+        return jsonify({"ok": True})
+
+    @app.route("/api/auth/eu")
+    def api_eu():
+        usuario = auth.usuario_atual()
+        return jsonify({"ok": True, "usuario": usuario.to_dict() if usuario else None})
+
+    # -----------------------------------------------------------------
+    # Administração de acessos (somente adm)
+    # -----------------------------------------------------------------
+
+    @app.route("/api/admin/usuarios")
+    @auth.admin_required
+    def api_admin_usuarios():
+        return jsonify({"ok": True, "usuarios": auth.listar_usuarios()})
+
+    @app.route("/api/admin/usuarios/<int:user_id>/aprovar", methods=["POST"])
+    @auth.admin_required
+    def api_admin_aprovar(user_id: int):
+        try:
+            usuario = auth.aprovar(user_id)
+        except auth.AuthError as exc:
+            return _json_error(exc.mensagem, exc.status)
+        log_action("auth.aprovar", detail=usuario.email, permission="WRITE", success=True)
+        return jsonify({"ok": True, "usuario": usuario.to_dict()})
+
+    @app.route("/api/admin/usuarios/<int:user_id>/recusar", methods=["POST"])
+    @auth.admin_required
+    def api_admin_recusar(user_id: int):
+        try:
+            usuario = auth.recusar(user_id)
+        except auth.AuthError as exc:
+            return _json_error(exc.mensagem, exc.status)
+        log_action("auth.recusar", detail=usuario.email, permission="WRITE", success=True)
+        return jsonify({"ok": True, "usuario": usuario.to_dict()})
 
     # -----------------------------------------------------------------
     # Página principal
@@ -218,7 +329,7 @@ def _register_routes(app: Flask):
     def api_list_pending_actions():
         agent.expire_old_pending_actions()
         status_filter = request.args.get("status", "pendente")
-        query = PendingAction.query
+        query = auth.escopar(PendingAction.query, PendingAction)
         if status_filter and status_filter != "all":
             query = query.filter_by(status=status_filter)
         items = query.order_by(PendingAction.created_at.desc()).limit(50).all()
@@ -226,7 +337,9 @@ def _register_routes(app: Flask):
 
     def _confirm_or_cancel(pending_id: int, confirmed: bool):
         agent.expire_old_pending_actions()
-        pending = PendingAction.query.get(pending_id)
+        pending = auth.escopar(PendingAction.query, PendingAction).filter(
+            PendingAction.id == pending_id
+        ).first()
         if not pending:
             return _json_error("Ação pendente não encontrada.", 404)
         if pending.status != "pendente":

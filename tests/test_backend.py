@@ -16,8 +16,18 @@ de internet.
 import os
 import tempfile
 import unittest
+from contextlib import contextmanager
+
+from flask import session as flask_session
 
 os.environ.setdefault("OPENAI_API_KEY", "")  # garante que o provider fica "não configurado" nos testes
+
+# O app inteiro passou a exigir sessão. Os testes entram como a dona do
+# projeto (administradora), que é o perfil sob o qual este comportamento
+# sempre foi exercido — o isolamento entre usuários tem testes próprios.
+EMAIL_ADMIN = "dona@nash.local"
+SENHA_ADMIN = "senha-de-teste-123"
+os.environ["ADMIN_EMAIL"] = EMAIL_ADMIN
 
 from app import create_app
 from backend.models import db, PendingAction
@@ -33,6 +43,53 @@ class NashTestCase(unittest.TestCase):
         self.client = self.app.test_client()
         self.ctx = self.app.app_context()
         self.ctx.push()
+        self.admin = self._entrar(EMAIL_ADMIN, SENHA_ADMIN)
+
+    def _entrar(self, email, senha, nome="") -> dict:
+        """Cria o cadastro e deixa o test_client autenticado com ele."""
+        resp = self.client.post(
+            "/api/auth/registrar",
+            json={"email": email, "senha": senha, "nome": nome},
+        )
+        self.assertTrue(resp.get_json()["ok"], resp.get_json())
+        # Quem não é administrador nasce pendente e ainda não tem sessão.
+        if not resp.get_json().get("liberado"):
+            return resp.get_json()
+        return resp.get_json()["usuario"]
+
+    def _acao_pendente(self, tool_name, args):
+        """
+        Cria uma ação pendente já pertencente à administradora.
+
+        Chamada direta roda fora de requisição, onde não existe sessão — a
+        ação nasceria órfã e a API, que é escopada por dono, não a acharia.
+        Em uso real ela nasce dentro de /api/chat, onde o dono existe.
+        """
+        from backend.ai.agent import create_pending_action
+
+        pending = create_pending_action(tool_name, args)
+        pending.user_id = self.admin["id"]
+        db.session.commit()
+        return pending
+
+    @contextmanager
+    def _como_admin(self):
+        """
+        Roda o bloco dentro de uma requisição autenticada como a dona.
+
+        Importa para o que grava: é do contexto de requisição que sai o dono
+        de tarefas, memórias e ações pendentes. Chamar as funções soltas
+        criaria registros órfãos, que não é o caminho real.
+        """
+        from backend.security import auth as auth_mod
+
+        with self.app.test_request_context("/"):
+            flask_session[auth_mod.CHAVE_SESSAO] = self.admin["id"]
+            yield
+
+    def _login(self, email, senha):
+        resp = self.client.post("/api/auth/login", json={"email": email, "senha": senha})
+        return resp
 
     def tearDown(self):
         # No Windows o arquivo só pode ser apagado depois que o SQLAlchemy
@@ -155,12 +212,13 @@ class NashTestCase(unittest.TestCase):
     def test_pending_action_confirm_executes_once(self):
         from backend.ai.agent import create_pending_action, resolve_pending_action
 
-        pending = create_pending_action("tool_create_task", {"title": "Tarefa via IA"})
-        self.assertEqual(pending.status, "pendente")
+        with self._como_admin():
+            pending = create_pending_action("tool_create_task", {"title": "Tarefa via IA"})
+            self.assertEqual(pending.status, "pendente")
 
-        result = resolve_pending_action(pending, confirmed=True)
-        self.assertEqual(result["type"], "message")
-        self.assertEqual(pending.status, "confirmada")
+            result = resolve_pending_action(pending, confirmed=True)
+            self.assertEqual(result["type"], "message")
+            self.assertEqual(pending.status, "confirmada")
 
         # Tarefa foi realmente criada
         resp = self.client.get("/api/tasks")
@@ -168,7 +226,8 @@ class NashTestCase(unittest.TestCase):
         self.assertIn("Tarefa via IA", titles)
 
         # Tentar confirmar de novo deve ser rejeitado (nunca executa duas vezes)
-        result2 = resolve_pending_action(pending, confirmed=True)
+        with self._como_admin():
+            result2 = resolve_pending_action(pending, confirmed=True)
         self.assertEqual(result2["type"], "error")
 
     def test_pending_action_cancel(self):
@@ -180,9 +239,7 @@ class NashTestCase(unittest.TestCase):
         self.assertEqual(pending.status, "cancelada")
 
     def test_pending_action_api_confirm_cancel_routes(self):
-        from backend.ai.agent import create_pending_action
-
-        pending = create_pending_action("tool_create_task", {"title": "Via API"})
+        pending = self._acao_pendente("tool_create_task", {"title": "Via API"})
         resp = self.client.post(f"/api/pending-actions/{pending.id}/confirm")
         self.assertTrue(resp.get_json()["ok"])
 
@@ -192,9 +249,9 @@ class NashTestCase(unittest.TestCase):
 
     def test_pending_action_expiration(self):
         from datetime import datetime, timedelta
-        from backend.ai.agent import create_pending_action, expire_old_pending_actions
+        from backend.ai.agent import expire_old_pending_actions
 
-        pending = create_pending_action("tool_create_task", {"title": "Vai expirar"})
+        pending = self._acao_pendente("tool_create_task", {"title": "Vai expirar"})
         # Força a data de criação para o passado
         pending.created_at = datetime.utcnow() - timedelta(minutes=999)
         db.session.commit()

@@ -88,6 +88,11 @@
     } catch {
       throw new Error("Resposta inválida do servidor.");
     }
+    // Sessão expirada ou acesso revogado: a tela certa é a de login.
+    if (res.status === 401) {
+      window.location.href = "/login";
+      throw new Error("Sessão encerrada.");
+    }
     if (!res.ok || data.ok === false) {
       throw new Error(data.error || `Erro (${res.status})`);
     }
@@ -108,10 +113,13 @@
     memory: "Command Center · Memória",
     activity: "Command Center · Atividade",
     settings: "Command Center · Ajustes",
+    acessos: "Command Center · Acessos",
   };
 
   function initNav() {
     $$(".nav-btn").forEach((btn) => {
+      // "Sair" usa o mesmo visual da navegação mas não abre view nenhuma.
+      if (!btn.dataset.view) return;
       btn.addEventListener("click", () => {
         $$(".nav-btn").forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
@@ -126,6 +134,7 @@
         if (view === "apps") loadConnections();
         if (view === "activity") loadActivity();
         if (view === "settings") loadSettings();
+        if (view === "acessos") loadAcessos();
       });
     });
   }
@@ -919,6 +928,132 @@
   }
 
   // ---------------------------------------------------------
+  // SESSÃO E ACESSOS
+  // ---------------------------------------------------------
+
+  let usuarioAtual = null;
+
+  async function initSessao() {
+    try {
+      const dados = await api("/api/auth/eu");
+      usuarioAtual = dados.usuario;
+    } catch (_) {
+      return; // api() já redireciona para /login quando a sessão caiu
+    }
+    if (!usuarioAtual) return;
+
+    // A aba de acessos só existe para o administrador. Esconder não é a
+    // proteção — a API recusa de qualquer forma; isto é só não oferecer
+    // uma porta que não abre.
+    if (usuarioAtual.is_admin) {
+      const nav = $("#nav-acessos");
+      if (nav) nav.hidden = false;
+      atualizarBadgePendentes();
+    }
+
+    const sair = $("#btn-sair");
+    if (sair) {
+      sair.addEventListener("click", async () => {
+        await fetch("/api/auth/logout", { method: "POST" });
+        window.location.href = "/login";
+      });
+    }
+  }
+
+  async function atualizarBadgePendentes() {
+    const badge = $("#badge-pendentes");
+    if (!badge || !usuarioAtual || !usuarioAtual.is_admin) return;
+    try {
+      const dados = await api("/api/admin/usuarios");
+      const pendentes = dados.usuarios.filter((u) => u.status === "pendente").length;
+      badge.textContent = pendentes;
+      badge.hidden = pendentes === 0;
+    } catch (_) {
+      badge.hidden = true;
+    }
+  }
+
+  async function loadAcessos() {
+    try {
+      const dados = await api("/api/admin/usuarios");
+      renderAcessos(dados.usuarios);
+      atualizarBadgePendentes();
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  const ROTULO_STATUS = {
+    pendente: "Aguardando você",
+    aprovado: "Liberado",
+    recusado: "Recusado",
+  };
+
+  function renderAcessos(usuarios) {
+    const lista = $("#lista-acessos");
+    if (!lista) return;
+    lista.innerHTML = "";
+
+    if (!usuarios.length) {
+      lista.innerHTML = `<div class="empty-state">Nenhum pedido ainda.</div>`;
+      return;
+    }
+
+    usuarios.forEach((u) => {
+      const card = document.createElement("div");
+      card.className = "item-card";
+
+      const nome = u.name ? escapeHtml(u.name) : "(sem nome)";
+      const marca = u.is_admin ? " · administrador" : "";
+      const classe = u.status === "pendente" ? "alta"
+                   : u.status === "aprovado" ? "normal" : "baixa";
+
+      card.innerHTML = `
+        <div class="item-top">
+          <span class="badge ${classe}">${ROTULO_STATUS[u.status] || u.status}</span>
+          <strong>${nome}</strong>
+        </div>
+        <div class="item-desc">${escapeHtml(u.email)}${marca}</div>
+        <div class="item-actions"></div>
+      `;
+
+      const acoes = card.querySelector(".item-actions");
+
+      // O administrador não pode se recusar nem se aprovar sozinho.
+      if (!u.is_admin) {
+        if (u.status !== "aprovado") {
+          acoes.appendChild(botaoAcesso("Liberar", "aprovar", u));
+        }
+        if (u.status !== "recusado") {
+          acoes.appendChild(botaoAcesso("Recusar", "recusar", u));
+        }
+      }
+
+      lista.appendChild(card);
+    });
+  }
+
+  function botaoAcesso(texto, acao, usuario) {
+    const btn = document.createElement("button");
+    btn.className = acao === "recusar" ? "btn small danger" : "btn small";
+    btn.textContent = texto;
+    btn.addEventListener("click", async () => {
+      if (acao === "recusar" &&
+          !confirm(`Recusar o acesso de ${usuario.email}?`)) return;
+      btn.disabled = true;
+      try {
+        await api(`/api/admin/usuarios/${usuario.id}/${acao}`, { method: "POST" });
+        toast(acao === "aprovar" ? "Acesso liberado." : "Acesso recusado.", "success");
+        loadAcessos();
+      } catch (err) {
+        toast(err.message, "error");
+        btn.disabled = false;
+      }
+    });
+    return btn;
+  }
+
+  // ---------------------------------------------------------
   // INIT
   // ---------------------------------------------------------
 
@@ -934,6 +1069,7 @@
     initSpeech();
     initVoiceOutputToggle();
     initAsideDrawer();
+    initSessao();
     loadHistory();
     refreshStatus();
     setInterval(refreshStatus, 20000);

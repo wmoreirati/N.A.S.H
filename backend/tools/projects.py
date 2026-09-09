@@ -6,18 +6,23 @@ as tarefas relacionadas a ele. As tarefas são preservadas e apenas
 desvinculadas (project_id volta a None).
 """
 from backend.models import db, Project, Task
+from backend.security.auth import escopar, marcar_dono
 from backend.security.validation import (
     require_text, validate_progress, validate_project_status, validate_id,
 )
 
 
 def list_projects(include_tasks: bool = False):
-    projects = Project.query.order_by(Project.updated_at.desc()).all()
+    projects = escopar(Project.query, Project).order_by(Project.updated_at.desc()).all()
     return [p.to_dict(include_tasks=include_tasks) for p in projects]
 
 
 def get_project_or_raise(project_id: int) -> Project:
-    project = Project.query.get(validate_id(project_id, "project_id"))
+    # Escopo do dono: projeto alheio responde 'nao encontrado'. Como toda
+    # alteracao e exclusao passa por aqui, protege o conjunto todo.
+    project = escopar(Project.query, Project).filter(
+        Project.id == validate_id(project_id, "project_id")
+    ).first()
     if not project:
         raise LookupError(f"Projeto {project_id} não encontrado.")
     return project
@@ -34,6 +39,7 @@ def create_project(name: str, description: str = "", objectives: str = ""):
         description=(description or "").strip(),
         objectives=(objectives or "").strip(),
     )
+    marcar_dono(project)
     db.session.add(project)
     db.session.commit()
     return project.to_dict()
@@ -63,7 +69,7 @@ def delete_project(project_id: int):
     project = get_project_or_raise(project_id)
 
     # Preserva as tarefas: apenas desvincula do projeto excluído.
-    linked_tasks = Task.query.filter_by(project_id=project.id).all()
+    linked_tasks = escopar(Task.query, Task).filter_by(project_id=project.id).all()
     for t in linked_tasks:
         t.project_id = None
 

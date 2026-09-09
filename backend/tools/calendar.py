@@ -8,11 +8,12 @@ Enquanto não houver uma conexão real, o N.A.S.H deve deixar isso explícito
 e nunca fingir que está sincronizado com o Google Calendar.
 """
 from backend.models import Task, Connection
+from backend.security.auth import escopar
 
 
 def get_local_calendar(date: str | None = None):
     """Retorna as tarefas com data/hora definidas (agenda local), opcionalmente filtradas por dia."""
-    query = Task.query.filter(Task.deleted_at.is_(None), Task.date.isnot(None))
+    query = escopar(Task.query, Task).filter(Task.deleted_at.is_(None), Task.date.isnot(None))
     if date:
         query = query.filter_by(date=date)
     tasks = query.order_by(Task.date.asc(), Task.time.asc()).all()

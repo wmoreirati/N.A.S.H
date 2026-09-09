@@ -37,6 +37,7 @@ from backend.security.audit import log_action
 from backend.security.validation import ValidationError
 from backend.memory import memory as memory_mod
 from backend.tools import tasks, projects, calendar as calendar_mod, connections
+from backend.security.auth import e_admin, escopar, marcar_dono
 from backend.tools import composio_tools
 from backend.models import db, PendingAction, Task, Project, Memory
 
@@ -192,6 +193,11 @@ def servicos_externos_relevantes(mensagem: str) -> set[str]:
 
 def schemas_externos_para(mensagem: str) -> list[dict]:
     """Esquemas das acoes externas dos servicos citados na mensagem."""
+    # As contas conectadas (Gmail, Agenda, Drive) sao de uma pessoa so: a dona
+    # do projeto. Usuario comum aprovado NAO recebe estas ferramentas -- sem
+    # isto, qualquer acesso liberado leria o e-mail dela pelo chat.
+    if not e_admin():
+        return []
     servicos = servicos_externos_relevantes(mensagem)
     if not servicos:
         return []
@@ -333,6 +339,9 @@ def _dispatch_read(tool_name: str, args: dict) -> dict:
     # Acao externa (Composio) de leitura: Gmail, Agenda, Drive, Docs, Sheets,
     # Notion, YouTube. Executa direto, como qualquer leitura.
     if tool_name in COMPOSIO_READ_NAMES:
+        if not e_admin():
+            return {"ok": False, "message":
+                    "Ações em serviços externos são restritas ao administrador."}
         return composio_tools.executar(tool_name, args)
 
     try:
@@ -424,6 +433,9 @@ def execute_write_tool(tool_name: str, args: dict) -> dict:
 
     # Acao externa confirmada pelo usuario. So chega aqui depois do cartao.
     if tool_name in COMPOSIO_WRITE_NAMES:
+        if not e_admin():
+            return {"ok": False, "message":
+                    "Ações em serviços externos são restritas ao administrador."}
         return composio_tools.executar(tool_name, args)
 
     if tool_name == "tool_create_task":
@@ -558,9 +570,9 @@ def _describe_action(tool_name: str, args: dict) -> str:
 
     if tool_name == "tool_update_task":
 
-        task = Task.query.get(
-            args.get("task_id")
-        )
+        task = escopar(Task.query, Task).filter(
+            Task.id == args.get("task_id")
+        ).first()
 
         nome = (
             f'"{task.title}"'
@@ -588,9 +600,9 @@ def _describe_action(tool_name: str, args: dict) -> str:
 
     if tool_name == "tool_complete_task":
 
-        task = Task.query.get(
-            args.get("task_id")
-        )
+        task = escopar(Task.query, Task).filter(
+            Task.id == args.get("task_id")
+        ).first()
 
         nome = (
             f'"{task.title}"'
@@ -605,9 +617,9 @@ def _describe_action(tool_name: str, args: dict) -> str:
 
     if tool_name == "tool_delete_task":
 
-        task = Task.query.get(
-            args.get("task_id")
-        )
+        task = escopar(Task.query, Task).filter(
+            Task.id == args.get("task_id")
+        ).first()
 
         nome = (
             f'"{task.title}"'
@@ -622,9 +634,9 @@ def _describe_action(tool_name: str, args: dict) -> str:
 
     if tool_name == "tool_restore_task":
 
-        task = Task.query.get(
-            args.get("task_id")
-        )
+        task = escopar(Task.query, Task).filter(
+            Task.id == args.get("task_id")
+        ).first()
 
         nome = (
             f'"{task.title}"'
@@ -657,9 +669,9 @@ def _describe_action(tool_name: str, args: dict) -> str:
 
     if tool_name == "tool_update_project":
 
-        project = Project.query.get(
-            args.get("project_id")
-        )
+        project = escopar(Project.query, Project).filter(
+            Project.id == args.get("project_id")
+        ).first()
 
         nome = (
             f'"{project.name}"'
@@ -688,9 +700,9 @@ def _describe_action(tool_name: str, args: dict) -> str:
 
     if tool_name == "tool_delete_project":
 
-        project = Project.query.get(
-            args.get("project_id")
-        )
+        project = escopar(Project.query, Project).filter(
+            Project.id == args.get("project_id")
+        ).first()
 
         nome = (
             f'"{project.name}"'
@@ -714,9 +726,9 @@ def _describe_action(tool_name: str, args: dict) -> str:
 
     if tool_name == "tool_update_memory":
 
-        mem = Memory.query.get(
-            args.get("memory_id")
-        )
+        mem = escopar(Memory.query, Memory).filter(
+            Memory.id == args.get("memory_id")
+        ).first()
 
         trecho = (
             f'"{mem.content[:60]}..."'
@@ -731,9 +743,9 @@ def _describe_action(tool_name: str, args: dict) -> str:
 
     if tool_name == "tool_delete_memory":
 
-        mem = Memory.query.get(
-            args.get("memory_id")
-        )
+        mem = escopar(Memory.query, Memory).filter(
+            Memory.id == args.get("memory_id")
+        ).first()
 
         trecho = (
             f'"{mem.content[:60]}..."'
@@ -798,6 +810,7 @@ def create_pending_action(
         ),
         status="pendente",
     )
+    marcar_dono(pending)
 
     db.session.add(pending)
 

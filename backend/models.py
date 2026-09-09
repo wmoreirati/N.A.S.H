@@ -7,6 +7,49 @@ from flask_sqlalchemy import SQLAlchemy
 
 db = SQLAlchemy()
 
+# Estados possíveis de um cadastro. Ninguém entra sem passar por "aprovado",
+# e é o administrador quem faz essa transição.
+PENDENTE = "pendente"
+APROVADO = "aprovado"
+RECUSADO = "recusado"
+
+
+class User(db.Model):
+    """
+    Pessoa com acesso ao N.A.S.H.
+
+    O cadastro nasce PENDENTE de propósito: qualquer um pode pedir acesso,
+    mas só o administrador libera. Sem isso o app ficaria aberto a quem
+    descobrisse a URL -- e as contas externas conectadas (Gmail, Agenda,
+    Drive) são de uma pessoa real.
+    """
+    __tablename__ = "users"
+
+    id = db.Column(db.Integer, primary_key=True)
+    email = db.Column(db.String(255), unique=True, nullable=False, index=True)
+    name = db.Column(db.String(120), default="")
+    password_hash = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default=PENDENTE, nullable=False)
+    is_admin = db.Column(db.Boolean, default=False, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    approved_at = db.Column(db.DateTime, nullable=True)
+
+    @property
+    def aprovado(self) -> bool:
+        return self.status == APROVADO
+
+    def to_dict(self):
+        # A hash da senha nunca sai daqui.
+        return {
+            "id": self.id,
+            "email": self.email,
+            "name": self.name,
+            "status": self.status,
+            "is_admin": self.is_admin,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "approved_at": self.approved_at.isoformat() if self.approved_at else None,
+        }
+
 
 class Preference(db.Model):
     """Preferências do usuário (chave/valor)."""
@@ -33,6 +76,7 @@ class Memory(db.Model):
     __tablename__ = "memories"
 
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     category = db.Column(db.String(60), default="geral")  # preferencia, projeto, estudo, contexto...
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -53,6 +97,7 @@ class Task(db.Model):
     __tablename__ = "tasks"
 
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     title = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, default="")
     date = db.Column(db.String(20), nullable=True)   # YYYY-MM-DD
@@ -85,6 +130,7 @@ class Project(db.Model):
     __tablename__ = "projects"
 
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     name = db.Column(db.String(255), nullable=False)
     description = db.Column(db.Text, default="")
     objectives = db.Column(db.Text, default="")
@@ -118,6 +164,7 @@ class Message(db.Model):
     __tablename__ = "messages"
 
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     role = db.Column(db.String(20), nullable=False)  # user, assistant, tool, system
     content = db.Column(db.Text, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -184,6 +231,7 @@ class PendingAction(db.Model):
     __tablename__ = "pending_actions"
 
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
     tool_name = db.Column(db.String(80), nullable=False)
     arguments = db.Column(db.Text, nullable=False)  # JSON serializado
     description = db.Column(db.Text, nullable=False)  # texto amigável mostrado ao usuário

@@ -9,6 +9,7 @@ Regras (seção 9 do briefing):
   tamanho total em caracteres) — nunca envia memória ilimitada.
 """
 from backend.models import db, Memory
+from backend.security.auth import escopar, marcar_dono
 from backend.security.validation import require_text, validate_memory_category
 
 DEFAULT_CONTEXT_LIMIT = 30
@@ -16,7 +17,7 @@ DEFAULT_CONTEXT_MAX_CHARS = 3000
 
 
 def list_memories(category: str | None = None):
-    query = Memory.query
+    query = escopar(Memory.query, Memory)
     if category:
         query = query.filter_by(category=category)
     memories = query.order_by(Memory.updated_at.desc()).all()
@@ -27,13 +28,14 @@ def save_memory(content: str, category: str = "geral"):
     content = require_text(content, "content")
     category = validate_memory_category(category)
     memory = Memory(content=content, category=category)
+    marcar_dono(memory)
     db.session.add(memory)
     db.session.commit()
     return memory.to_dict()
 
 
 def update_memory(memory_id: int, content: str | None = None, category: str | None = None):
-    memory = Memory.query.get(memory_id)
+    memory = escopar(Memory.query, Memory).filter(Memory.id == memory_id).first()
     if not memory:
         raise LookupError(f"Memória {memory_id} não encontrada.")
     if content is not None:
@@ -45,7 +47,7 @@ def update_memory(memory_id: int, content: str | None = None, category: str | No
 
 
 def delete_memory(memory_id: int):
-    memory = Memory.query.get(memory_id)
+    memory = escopar(Memory.query, Memory).filter(Memory.id == memory_id).first()
     if not memory:
         raise LookupError(f"Memória {memory_id} não encontrada.")
     db.session.delete(memory)
@@ -54,7 +56,7 @@ def delete_memory(memory_id: int):
 
 
 def delete_all_memories():
-    count = Memory.query.delete()
+    count = escopar(Memory.query, Memory).delete(synchronize_session=False)
     db.session.commit()
     return {"deleted_count": count}
 
@@ -65,7 +67,7 @@ def memory_context_snapshot(limit: int = DEFAULT_CONTEXT_LIMIT, max_chars: int =
     no system prompt do modelo de IA. Limitado por quantidade E por
     tamanho total em caracteres, para nunca inflar o prompt indefinidamente.
     """
-    memories = Memory.query.order_by(Memory.updated_at.desc()).limit(limit).all()
+    memories = escopar(Memory.query, Memory).order_by(Memory.updated_at.desc()).limit(limit).all()
     if not memories:
         return "Nenhuma memória salva ainda."
 

@@ -3,13 +3,14 @@ N.A.S.H - Gerenciamento de tarefas (agenda local).
 """
 from datetime import datetime
 from backend.models import db, Task
+from backend.security.auth import escopar, marcar_dono
 from backend.security.validation import (
     require_text, validate_priority, validate_date, validate_time, validate_id,
 )
 
 
 def list_tasks(status: str | None = None, include_deleted: bool = False):
-    query = Task.query
+    query = escopar(Task.query, Task)
     if not include_deleted:
         query = query.filter(Task.deleted_at.is_(None))
     if status:
@@ -22,7 +23,13 @@ def list_tasks(status: str | None = None, include_deleted: bool = False):
 
 
 def get_task(task_id: int) -> Task:
-    task = Task.query.get(validate_id(task_id, "task_id"))
+    # Passa pelo escopo do dono: tarefa de outra pessoa responde "não
+    # encontrada", e não "acesso negado" -- a segunda resposta confirmaria a
+    # existência do registro. Como toda alteração e exclusão passa por aqui,
+    # este é o ponto único que impede mexer no que não é seu.
+    task = escopar(Task.query, Task).filter(
+        Task.id == validate_id(task_id, "task_id")
+    ).first()
     if not task:
         raise LookupError(f"Tarefa {task_id} não encontrada.")
     return task
@@ -46,6 +53,7 @@ def create_task(title: str, description: str = "", date: str | None = None,
         project_id=project_id,
         status="pendente",
     )
+    marcar_dono(task)
     db.session.add(task)
     db.session.commit()
     return task.to_dict()
@@ -101,7 +109,7 @@ def restore_task(task_id: int):
 
 
 def delete_all_tasks():
-    active_tasks = Task.query.filter(Task.deleted_at.is_(None)).all()
+    active_tasks = escopar(Task.query, Task).filter(Task.deleted_at.is_(None)).all()
     count = len(active_tasks)
     now = datetime.utcnow()
     for t in active_tasks:
@@ -112,4 +120,4 @@ def delete_all_tasks():
 
 
 def count_active_tasks() -> int:
-    return Task.query.filter(Task.deleted_at.is_(None)).count()
+    return escopar(Task.query, Task).filter(Task.deleted_at.is_(None)).count()
