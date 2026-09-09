@@ -734,13 +734,19 @@
       const data = await api("/api/connections");
       const list = $("#connections-list");
       list.innerHTML = "";
+      const ativos = data.connections.filter((c) => c.connected).length;
+      const resumo = $("#connections-count");
+      if (resumo) resumo.textContent = `${ativos} de ${data.connections.length}`;
       data.connections.forEach((c) => {
         const row = document.createElement("div");
         row.className = "item-card";
         row.innerHTML = `
           <div class="item-top">
-            <div class="item-title">${SERVICE_LABELS[c.service] || c.service}</div>
+            <div class="item-title">${escapeHtml(c.label || SERVICE_LABELS[c.service] || c.service)}</div>
             <span class="badge ${c.connected ? "concluida" : "excluida"}">${c.connected ? "Conectado" : "Não conectado"}</span>
+          </div>
+          <div class="item-meta">
+            <span>${c.connected ? "via Composio · o N.A.S.H pode usar" : "sem conexão ativa"}</span>
           </div>
         `;
         list.appendChild(row);
@@ -757,7 +763,7 @@
     connections.forEach((c) => {
       const row = document.createElement("div");
       row.className = "conn-row";
-      row.innerHTML = `<span>${SERVICE_LABELS[c.service] || c.service}</span><span class="dot ${c.connected ? "on" : "off"}"></span>`;
+      row.innerHTML = `<span>${escapeHtml(c.label || SERVICE_LABELS[c.service] || c.service)}</span><span class="dot ${c.connected ? "on" : "off"}"></span>`;
       el.appendChild(row);
     });
   }

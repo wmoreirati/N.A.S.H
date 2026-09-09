@@ -1,0 +1,831 @@
+{
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "GMAIL_FETCH_EMAILS",
+        "description": "Fetches a list of email messages from a gmail account, supporting filtering, pagination, and optional full content retrieval.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Gmail advanced search query (e.g., 'from:user subject:meeting'). Supports operators like '"
+            },
+            "user_id": {
+              "type": "string",
+              "description": "User's email address or 'me' for the authenticated user."
+            },
+            "verbose": {
+              "type": "boolean",
+              "description": "If false, uses optimized concurrent metadata fetching for faster performance (~75% improve"
+            },
+            "ids_only": {
+              "type": "boolean",
+              "description": "If true, only returns message IDs from the list API without fetching individual message de"
+            },
+            "label_ids": {
+              "type": "array",
+              "description": "Filter by label IDs; only messages with all specified labels are returned. Common IDs: 'IN"
+            },
+            "page_token": {
+              "type": "string",
+              "description": "Token for retrieving a specific page, obtained from a previous response's `nextPageToken`."
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of messages to retrieve per page."
+            },
+            "include_payload": {
+              "type": "boolean",
+              "description": "Set to true to include full message payload (headers, body, attachments); false for metada"
+            },
+            "include_spam_trash": {
+              "type": "boolean",
+              "description": "Set to true to include messages from 'SPAM' and 'TRASH'."
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GMAIL_SEND_EMAIL",
+        "description": "Sends an email via gmail api using the authenticated user's google profile display name, requiring `is html=true` if the body contains html ",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "cc": {
+              "type": "array",
+              "description": "Carbon Copy (CC) recipients' email addresses."
+            },
+            "bcc": {
+              "type": "array",
+              "description": "Blind Carbon Copy (BCC) recipients' email addresses."
+            },
+            "body": {
+              "type": "string",
+              "description": "Email content (plain text or HTML); if HTML, `is_html` must be `True`."
+            },
+            "is_html": {
+              "type": "boolean",
+              "description": "Set to `True` if the email body contains HTML tags."
+            },
+            "subject": {
+              "type": "string",
+              "description": "Subject line of the email."
+            },
+            "user_id": {
+              "type": "string",
+              "description": "User's email address; the literal 'me' refers to the authenticated user."
+            },
+            "attachment": {
+              "type": "object",
+              "description": "File to attach; ensure `s3key`, `mimetype`, and `name` are set if provided. Omit or set to"
+            },
+            "recipient_email": {
+              "type": "string",
+              "description": "Primary recipient's email address."
+            },
+            "extra_recipients": {
+              "type": "array",
+              "description": "Additional 'To' recipients' email addresses (not Cc or Bcc)."
+            }
+          },
+          "required": [
+            "recipient_email",
+            "body"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GMAIL_CREATE_EMAIL_DRAFT",
+        "description": "Creates a gmail email draft, supporting to/cc/bcc, subject, plain/html body (ensure `is html=true` for html), attachments, and threading.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "cc": {
+              "type": "array",
+              "description": "'Cc' (carbon copy) recipient email addresses."
+            },
+            "bcc": {
+              "type": "array",
+              "description": "'Bcc' (blind carbon copy) recipient email addresses."
+            },
+            "body": {
+              "type": "string",
+              "description": "Email body content (plain text or HTML); `is_html` must be True if HTML."
+            },
+            "is_html": {
+              "type": "boolean",
+              "description": "Set to True if `body` is HTML, otherwise the action may fail."
+            },
+            "subject": {
+              "type": "string",
+              "description": "Email subject line."
+            },
+            "user_id": {
+              "type": "string",
+              "description": "User's email address or 'me' for the authenticated user."
+            },
+            "thread_id": {
+              "type": "string",
+              "description": "ID of an existing Gmail thread to reply to; omit for new thread."
+            },
+            "attachment": {
+              "type": "object",
+              "description": "File to attach to the email."
+            },
+            "recipient_email": {
+              "type": "string",
+              "description": "Primary recipient's email address."
+            },
+            "extra_recipients": {
+              "type": "array",
+              "description": "Additional 'To' recipient email addresses."
+            }
+          },
+          "required": [
+            "recipient_email",
+            "subject",
+            "body"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLECALENDAR_EVENTS_LIST",
+        "description": "Returns events on the specified calendar.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "description": "Free text search terms to find events that match these terms in various fields. Optional."
+            },
+            "iCalUID": {
+              "type": "string",
+              "description": "Specifies an event ID in the iCalendar format to be provided in the response. Optional. Us"
+            },
+            "orderBy": {
+              "type": "string",
+              "description": "The order of the events returned in the result. Optional. The default is an unspecified, s"
+            },
+            "timeMax": {
+              "type": "string",
+              "description": "Upper bound (exclusive) for an event's start time to filter by. Optional. The default is n"
+            },
+            "timeMin": {
+              "type": "string",
+              "description": "Lower bound (exclusive) for an event's end time to filter by. Optional. The default is not"
+            },
+            "timeZone": {
+              "type": "string",
+              "description": "Time zone used in the response. Optional. The default is the user's primary time zone."
+            },
+            "pageToken": {
+              "type": "string",
+              "description": "Token specifying which result page to return. Optional."
+            },
+            "syncToken": {
+              "type": "string",
+              "description": "Token obtained from the nextSyncToken field returned on the last page of results from the "
+            },
+            "calendarId": {
+              "type": "string",
+              "description": "Calendar identifier. To retrieve calendar IDs call the calendarList.list method. If you wa"
+            },
+            "eventTypes": {
+              "type": "string",
+              "description": "Event types to return. Optional. This parameter can be repeated multiple times to return e"
+            },
+            "maxResults": {
+              "type": "integer",
+              "description": "Maximum number of events returned on one result page. The number of events in the resultin"
+            },
+            "updatedMin": {
+              "type": "string",
+              "description": "Lower bound for an event's last modification time (as a RFC3339 timestamp) to filter by. W"
+            },
+            "showDeleted": {
+              "type": "boolean",
+              "description": "Whether to include deleted events (with status equals \"cancelled\") in the result. Optional"
+            },
+            "maxAttendees": {
+              "type": "integer",
+              "description": "The maximum number of attendees to include in the response. If there are more than the spe"
+            },
+            "singleEvents": {
+              "type": "boolean",
+              "description": "Whether to expand recurring events into instances and only return single one-off events an"
+            },
+            "alwaysIncludeEmail": {
+              "type": "boolean",
+              "description": "Deprecated and ignored."
+            },
+            "showHiddenInvitations": {
+              "type": "boolean",
+              "description": "Whether to include hidden invitations in the result. Optional. The default is False."
+            },
+            "sharedExtendedProperty": {
+              "type": "string",
+              "description": "Extended properties constraint specified as propertyName=value. Matches only shared proper"
+            },
+            "privateExtendedProperty": {
+              "type": "string",
+              "description": "Extended properties constraint specified as propertyName=value. Matches only private prope"
+            }
+          },
+          "required": [
+            "calendarId"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLECALENDAR_FIND_FREE_SLOTS",
+        "description": "Finds free/busy time slots in google calendars for specified calendars within a defined time range (defaults to the current day utc if `time",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "items": {
+              "type": "array",
+              "description": "List of calendar identifiers (primary ID 'primary', user/calendar email, or unique calenda"
+            },
+            "time_max": {
+              "type": "string",
+              "description": "End datetime for the query interval. Accepts ISO, comma-separated, or simple datetime form"
+            },
+            "time_min": {
+              "type": "string",
+              "description": "Start datetime for the query interval. Accepts ISO, comma-separated, or simple datetime fo"
+            },
+            "timezone": {
+              "type": "string",
+              "description": "IANA timezone identifier (e.g., 'America/New_York', 'Europe/London') for interpreting `tim"
+            },
+            "group_expansion_max": {
+              "type": "integer",
+              "description": "Maximum calendar identifiers to return for a single group; exceeding this causes an error."
+            },
+            "calendar_expansion_max": {
+              "type": "integer",
+              "description": "Maximum calendars for which FreeBusy information is provided. Max allowed: 50."
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLECALENDAR_CREATE_EVENT",
+        "description": "Creates an event on a google calendar, needing rfc3339 utc start/end times (end after start) and write access to the calendar. by default, a",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string",
+              "description": "Summary (title) of the event."
+            },
+            "location": {
+              "type": "string",
+              "description": "Geographic location of the event as free-form text."
+            },
+            "timezone": {
+              "type": "string",
+              "description": "IANA timezone name (e.g., 'America/New_York'). Required if datetime is naive. If datetime "
+            },
+            "attendees": {
+              "type": "array",
+              "description": "List of attendee emails (strings)."
+            },
+            "eventType": {
+              "type": "string",
+              "description": "Type of the event, immutable post-creation. Supported types: 'birthday' (all-day with annu",
+              "enum": [
+                "birthday",
+                "default",
+                "focusTime",
+                "outOfOffice",
+                "workingLocation"
+              ]
+            },
+            "recurrence": {
+              "type": "array",
+              "description": "List of RRULE, EXRULE, RDATE, EXDATE lines for recurring events. Supported frequencies are"
+            },
+            "visibility": {
+              "type": "string",
+              "description": "Event visibility: 'default', 'public', 'private', or 'confidential'.",
+              "enum": [
+                "default",
+                "public",
+                "private",
+                "confidential"
+              ]
+            },
+            "calendar_id": {
+              "type": "string",
+              "description": "Target calendar: 'primary' for the user's main calendar, or the calendar's email address."
+            },
+            "description": {
+              "type": "string",
+              "description": "Description of the event. Can contain HTML. Optional."
+            },
+            "send_updates": {
+              "type": "boolean",
+              "description": "Defaults to True. Whether to send updates to the attendees."
+            },
+            "transparency": {
+              "type": "string",
+              "description": "'opaque' (busy) or 'transparent' (available).",
+              "enum": [
+                "opaque",
+                "transparent"
+              ]
+            },
+            "start_datetime": {
+              "type": "string",
+              "description": "Naive date/time (YYYY-MM-DDTHH:MM:SS) with NO offsets or Z. e.g. '2025-01-16T13:00:00'"
+            },
+            "exclude_organizer": {
+              "type": "boolean",
+              "description": "If True, the organizer will NOT be added as an attendee. Default is False (organizer is in"
+            },
+            "guests_can_modify": {
+              "type": "boolean",
+              "description": "If True, guests can modify the event."
+            },
+            "create_meeting_room": {
+              "type": "boolean",
+              "description": "If true, a Google Meet link is created and added to the event. CRITICAL: As of 2024, this "
+            },
+            "event_duration_hour": {
+              "type": "integer",
+              "description": "Number of hours (0-24). Increase by 1 here rather than passing 60 in `event_duration_minut"
+            },
+            "guestsCanInviteOthers": {
+              "type": "boolean",
+              "description": "Whether attendees other than the organizer can invite others to the event."
+            },
+            "event_duration_minutes": {
+              "type": "integer",
+              "description": "Duration in minutes (0-59 ONLY). NEVER use 60+ minutes - use event_duration_hour=1 instead"
+            },
+            "guestsCanSeeOtherGuests": {
+              "type": "boolean",
+              "description": "Whether attendees other than the organizer can see who the event's attendees are."
+            }
+          },
+          "required": [
+            "start_datetime"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLECALENDAR_QUICK_ADD",
+        "description": "Parses natural language text to quickly create a basic google calendar event with its title, date, and time, suitable for simple scheduling;",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "string",
+              "description": "Natural language input describing the event; Google Calendar parses this for event details"
+            },
+            "calendar_id": {
+              "type": "string",
+              "description": "Identifier of the calendar for the event. Use 'primary' for the main calendar, or provide "
+            },
+            "send_updates": {
+              "type": "string",
+              "description": "Controls whether email notifications about the event creation are sent to attendees.",
+              "enum": [
+                "all",
+                "externalOnly",
+                "none"
+              ]
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLEDRIVE_LIST_FILES",
+        "description": "Tool to list a user's files and folders in google drive. use this to search or browse for files and folders based on various criteria.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "description": "A query string for filtering the file results. Supports operators like 'and', 'or', 'not',"
+            },
+            "fields": {
+              "type": "string",
+              "description": "Selector specifying which fields to include in a partial response. This can be used to ret"
+            },
+            "spaces": {
+              "type": "string",
+              "description": "A comma-separated list of spaces to query within the corpora. Supported values are 'drive'"
+            },
+            "corpora": {
+              "type": "string",
+              "description": "Specifies the bodies of items (files/documents) to which the query applies. Supported valu"
+            },
+            "driveId": {
+              "type": "string",
+              "description": "The ID of the shared drive to search. This is used when `corpora` is set to 'drive'."
+            },
+            "orderBy": {
+              "type": "string",
+              "description": "A comma-separated list of sort keys. Valid keys include 'createdTime', 'folder', 'modified"
+            },
+            "folderId": {
+              "type": "string",
+              "description": "ID of a specific folder to list files from. This is a convenience parameter that automatic"
+            },
+            "pageSize": {
+              "type": "integer",
+              "description": "The maximum number of files to return per page. The value must be between 1 and 1000, incl"
+            },
+            "pageToken": {
+              "type": "string",
+              "description": "The token for continuing a previous list request on the next page. This should be set to t"
+            },
+            "includeLabels": {
+              "type": "string",
+              "description": "A comma-separated list of label IDs to include in the `labelInfo` part of the response for"
+            },
+            "supportsAllDrives": {
+              "type": "boolean",
+              "description": "Whether the requesting application supports both My Drives and shared drives. Defaults to "
+            },
+            "includeItemsFromAllDrives": {
+              "type": "boolean",
+              "description": "Whether to include items from both My Drive and shared drives. This is relevant when `corp"
+            },
+            "includePermissionsForView": {
+              "type": "string",
+              "description": "Specifies which additional view's permissions to include in the response. Currently, only "
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLEDRIVE_FIND_FILE",
+        "description": "Tool to list or search for files and folders in google drive. use when you need to find specific files based on query criteria or list conte",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "description": "A query for filtering the file results. See Google Drive API documentation for query synta"
+            },
+            "fields": {
+              "type": "string",
+              "description": "Selector specifying which fields to include in a partial response. Use '*' for all fields "
+            },
+            "spaces": {
+              "type": "string",
+              "description": "A comma-separated list of spaces to query. Supported values are 'drive', 'appDataFolder' a"
+            },
+            "corpora": {
+              "type": "string",
+              "description": "Corpora to query. 'user' for user's personal files, 'drive' for files in a specific shared",
+              "enum": [
+                "user",
+                "drive",
+                "domain",
+                "allDrives"
+              ]
+            },
+            "driveId": {
+              "type": "string",
+              "description": "ID of the shared drive to search. Required if 'corpora' is 'drive'."
+            },
+            "orderBy": {
+              "type": "string",
+              "description": "A comma-separated list of sort keys. Valid keys are 'createdTime', 'folder', 'modifiedByMe"
+            },
+            "pageSize": {
+              "type": "integer",
+              "description": "The maximum number of files to return per page."
+            },
+            "pageToken": {
+              "type": "string",
+              "description": "The token for continuing a previous list request on the next page."
+            },
+            "supportsAllDrives": {
+              "type": "boolean",
+              "description": "Whether the requesting application supports both My Drives and shared drives. If 'includeI"
+            },
+            "includeItemsFromAllDrives": {
+              "type": "boolean",
+              "description": "Whether both My Drive and shared drive items should be included in results. If true, 'supp"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLEDOCS_SEARCH_DOCUMENTS",
+        "description": "Search for google documents using various filters including name, content, date ranges, and more.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query to filter documents. Can search by name (name contains 'report'), full text c"
+            },
+            "order_by": {
+              "type": "string",
+              "description": "Order results by field. Common options: 'modifiedTime desc', 'modifiedTime asc', 'name', '"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of documents to return (1-1000). Defaults to 10."
+            },
+            "starred_only": {
+              "type": "boolean",
+              "description": "Whether to return only starred documents. Defaults to False."
+            },
+            "created_after": {
+              "type": "string",
+              "description": "Return documents created after this date. Use RFC 3339 format like '2024-01-01T00:00:00Z'."
+            },
+            "modified_after": {
+              "type": "string",
+              "description": "Return documents modified after this date. Use RFC 3339 format like '2024-01-01T00:00:00Z'"
+            },
+            "shared_with_me": {
+              "type": "boolean",
+              "description": "Whether to return only documents shared with the current user. Defaults to False."
+            },
+            "include_trashed": {
+              "type": "boolean",
+              "description": "Whether to include documents in trash. Defaults to False."
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLEDOCS_GET_DOCUMENT_BY_ID",
+        "description": "Retrieves an existing google document by its id; will error if the document is not found.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "The unique identifier for the Google Document to be retrieved. This action specifically fe"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLEDOCS_CREATE_DOCUMENT_MARKDOWN",
+        "description": "Creates a new google docs document, optionally initializing it with a title and content provided as markdown text.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "The title for the new Google Docs document."
+            },
+            "markdown_text": {
+              "type": "string",
+              "description": "The initial content for the document, formatted as Markdown. Supports various Markdown ele"
+            }
+          },
+          "required": [
+            "title",
+            "markdown_text"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLESHEETS_SEARCH_SPREADSHEETS",
+        "description": "Search for google spreadsheets using various filters including name, content, date ranges, and more.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "Search query to filter spreadsheets. Can search by name (name contains 'budget'), full tex"
+            },
+            "order_by": {
+              "type": "string",
+              "description": "Order results by field. Common options: 'modifiedTime desc', 'modifiedTime asc', 'name', '"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Maximum number of spreadsheets to return (1-1000). Defaults to 10."
+            },
+            "starred_only": {
+              "type": "boolean",
+              "description": "Whether to return only starred spreadsheets. Defaults to False."
+            },
+            "created_after": {
+              "type": "string",
+              "description": "Return spreadsheets created after this date. Use RFC 3339 format like '2024-01-01T00:00:00"
+            },
+            "modified_after": {
+              "type": "string",
+              "description": "Return spreadsheets modified after this date. Use RFC 3339 format like '2024-01-01T00:00:0"
+            },
+            "shared_with_me": {
+              "type": "boolean",
+              "description": "Whether to return only spreadsheets shared with the current user. Defaults to False."
+            },
+            "include_trashed": {
+              "type": "boolean",
+              "description": "Whether to include spreadsheets in trash. Defaults to False."
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "GOOGLESHEETS_BATCH_GET",
+        "description": "Retrieves data from specified cell ranges in a google spreadsheet; ensure the spreadsheet has at least one worksheet and any explicitly refe",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "ranges": {
+              "type": "array",
+              "description": "A list of cell ranges in A1 notation (e.g., 'Sheet1!A1:B2', 'A1:C5') from which to retriev"
+            },
+            "spreadsheet_id": {
+              "type": "string",
+              "description": "The unique identifier of the Google Spreadsheet from which data will be retrieved."
+            }
+          },
+          "required": [
+            "spreadsheet_id"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "NOTION_SEARCH_NOTION_PAGE",
+        "description": "Searches notion pages and databases by title; an empty query lists all accessible items, useful for discovering ids or as a fallback when a ",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "The text to search for in page and database titles. If an empty string is provided, all pa"
+            },
+            "direction": {
+              "type": "string",
+              "description": "Specifies the sort direction for the results. Required if `timestamp` is provided. Valid v"
+            },
+            "page_size": {
+              "type": "integer",
+              "description": "The number of items to include in the response. Must be an integer between 1 and 100, incl"
+            },
+            "timestamp": {
+              "type": "string",
+              "description": "The timestamp field to sort the results by. Currently, the only supported value is `last_e"
+            },
+            "filter_value": {
+              "type": "string",
+              "description": "Filters the search results by object type. Valid values are `page` or `database`. Defaults"
+            },
+            "start_cursor": {
+              "type": "string",
+              "description": "An opaque cursor value returned in a previous response. If provided, the API will return r"
+            },
+            "filter_property": {
+              "type": "string",
+              "description": "The property to filter the search results by. Currently, the only supported value is `obje"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "NOTION_FETCH_DATA",
+        "description": "Fetches notion items (pages and/or databases) from the notion workspace, use this to get minimal data about the items in the workspace with ",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "description": "An optional search query to filter pages and/or databases by their title or content. If no"
+            },
+            "get_all": {
+              "type": "boolean",
+              "description": "If true, fetches both pages and databases accessible to the Notion integration. Only one o"
+            },
+            "get_pages": {
+              "type": "boolean",
+              "description": "If true, fetches all pages accessible to the Notion integration. Only one of `get_pages`, "
+            },
+            "page_size": {
+              "type": "integer",
+              "description": "The maximum number of items to retrieve. Must be between 1 and 100, inclusive. Defaults to"
+            },
+            "get_databases": {
+              "type": "boolean",
+              "description": "If true, fetches all databases accessible to the Notion integration. Only one of `get_page"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "YOUTUBE_SEARCH_YOU_TUBE",
+        "description": "Searches youtube for videos, channels, or playlists using a query term, returning the raw api response.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "q": {
+              "type": "string",
+              "description": "Search query term. Supports: - Basic text: 'machine learning' - Exact phrases: '\"exact phr"
+            },
+            "part": {
+              "type": "string",
+              "description": "Comma-separated list of search resource properties (e.g., 'id', 'snippet') to include in t"
+            },
+            "type": {
+              "type": "string",
+              "description": "Restricts search to 'video', 'channel', or 'playlist'; comma-separate for multiple types ("
+            },
+            "pageToken": {
+              "type": "string",
+              "description": "Pagination token from a previous response's 'nextPageToken' or 'prevPageToken', used to re"
+            },
+            "maxResults": {
+              "type": "integer",
+              "description": "Maximum number of items to return per page."
+            }
+          },
+          "required": [
+            "q"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "YOUTUBE_LOAD_CAPTIONS",
+        "description": "Downloads a specific youtube caption track, which must be owned by the authenticated user, and returns its content as text.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "description": "Unique YouTube-assigned ID of the caption track to download."
+            },
+            "tfmt": {
+              "type": "string",
+              "description": "Desired format for the caption track. Supported formats: 'srt' (SubRip), 'sbv' (SubViewer)"
+            }
+          },
+          "required": [
+            "id"
+          ]
+        }
+      }
+    }
+  ]
+}

@@ -29,7 +29,10 @@ from backend.models import db, Connection
 
 logger = logging.getLogger("nash.db")
 
-EXTERNAL_SERVICES = ["spotify", "google_calendar", "gmail", "outlook", "messages"]
+# Nomes iguais aos slugs do Composio, para a tabela nao ter duas linhas para
+# o mesmo servico (havia "google_calendar" da semente antiga e "googlecalendar"
+# vindo da sincronizacao).
+EXTERNAL_SERVICES = ["spotify", "googlecalendar", "gmail", "outlook", "messages"]
 
 
 def _normalize_postgres_uri(uri: str) -> str:

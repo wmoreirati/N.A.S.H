@@ -37,6 +37,7 @@ from backend.security.audit import log_action
 from backend.security.validation import ValidationError
 from backend.memory import memory as memory_mod
 from backend.tools import tasks, projects, calendar as calendar_mod, connections
+from backend.tools import composio_tools
 from backend.models import db, PendingAction, Task, Project, Memory
 
 
@@ -144,6 +145,60 @@ def _check_tool_consistency():
 
 
 _check_tool_consistency()
+
+
+# ===========================================================================
+# INTEGRACOES EXTERNAS (Composio)
+# ===========================================================================
+#
+# Registradas DEPOIS da checagem acima, de proposito: aquela verificacao cuida
+# das ferramentas NATIVAS, cujo schema, permissao e dispatcher moram neste
+# repositorio. As acoes do Composio vem de catalogo externo e somem se a
+# conexao for revogada -- exigir que estejam sempre presentes faria o servidor
+# recusar iniciar por causa de um servico de terceiro fora do ar.
+
+COMPOSIO_READ_NAMES = {
+    slug for slug, perm in composio_tools.ACOES.items() if perm == permissions.READ
+}
+COMPOSIO_WRITE_NAMES = set(composio_tools.ACOES) - COMPOSIO_READ_NAMES
+
+# O sistema de permissao precisa conhecer as acoes externas para aplicar o
+# cartao de confirmacao a todas que escrevem.
+permissions.TOOL_PERMISSIONS.update(composio_tools.ACOES)
+
+# Palavra na mensagem -> servico externo oferecido naquele turno. Sem este
+# filtro, os ~5.800 tokens do catalogo inteiro viajariam em toda pergunta e
+# estourariam sozinhos o teto de 6.000 tokens/minuto da camada gratuita.
+GATILHOS_COMPOSIO = {
+    "gmail":          ("email", "e-mail", "mail", "caixa de entrada", "inbox", "remetente"),
+    "googlecalendar": ("agenda", "calendario", "calendário", "compromisso", "evento",
+                       "reuniao", "reunião", "marcar", "agendar", "horário livre"),
+    "googledrive":    ("drive", "arquivo", "pasta"),
+    "googledocs":     ("docs", "documento", "redigir"),
+    "googlesheets":   ("planilha", "sheets", "tabela"),
+    "notion":         ("notion",),
+    "youtube":        ("youtube", "video", "vídeo"),
+}
+
+
+def servicos_externos_relevantes(mensagem: str) -> set[str]:
+    baixa = (mensagem or "").lower()
+    return {
+        servico
+        for servico, gatilhos in GATILHOS_COMPOSIO.items()
+        if any(g in baixa for g in gatilhos)
+    }
+
+
+def schemas_externos_para(mensagem: str) -> list[dict]:
+    """Esquemas das acoes externas dos servicos citados na mensagem."""
+    servicos = servicos_externos_relevantes(mensagem)
+    if not servicos:
+        return []
+    return [
+        s for s in composio_tools.get_schemas()
+        if s["function"]["name"].split("_", 1)[0].lower() in servicos
+    ]
 
 
 # ===========================================================================
@@ -275,6 +330,11 @@ def build_system_prompt() -> str:
 
 def _dispatch_read(tool_name: str, args: dict) -> dict:
 
+    # Acao externa (Composio) de leitura: Gmail, Agenda, Drive, Docs, Sheets,
+    # Notion, YouTube. Executa direto, como qualquer leitura.
+    if tool_name in COMPOSIO_READ_NAMES:
+        return composio_tools.executar(tool_name, args)
+
     try:
 
         if tool_name == "tool_list_tasks":
@@ -361,6 +421,10 @@ def _dispatch_read(tool_name: str, args: dict) -> dict:
 # ===========================================================================
 
 def execute_write_tool(tool_name: str, args: dict) -> dict:
+
+    # Acao externa confirmada pelo usuario. So chega aqui depois do cartao.
+    if tool_name in COMPOSIO_WRITE_NAMES:
+        return composio_tools.executar(tool_name, args)
 
     if tool_name == "tool_create_task":
         return tasks.create_task(**args)
@@ -460,6 +524,11 @@ def execute_write_tool(tool_name: str, args: dict) -> dict:
 # ===========================================================================
 
 def _describe_action(tool_name: str, args: dict) -> str:
+
+    # Sem isto, o cartao mostraria o slug cru (GMAIL_SEND_EMAIL) a quem so
+    # quer saber o que vai acontecer com os dados dele.
+    if tool_name in composio_tools.ACOES:
+        return composio_tools.descreve(tool_name, args)
 
     if tool_name == "tool_create_task":
 
@@ -1621,6 +1690,17 @@ def run_chat_turn(
         if needs_tools
         else []
     )
+
+    # Acoes externas so entram quando a mensagem cita o servico. O catalogo
+    # inteiro custa ~5.800 tokens; mandado em toda pergunta, estouraria
+    # sozinho o teto de 6.000 tokens/minuto da camada gratuita do provedor.
+    externos = schemas_externos_para(user_message)
+    if externos:
+        tools_schema = list(tools_schema) + externos
+        print(
+            f"[EXTERNOS] {len(externos)} acao(oes) de "
+            f"{sorted(servicos_externos_relevantes(user_message))}"
+        )
 
     known_tool_names = {
         tool["function"]["name"]

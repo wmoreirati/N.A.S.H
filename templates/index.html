@@ -272,13 +272,18 @@
     <section class="view" id="view-apps">
       <div class="panel" style="flex:1; min-height:0; padding: 14px; overflow-y:auto;">
         <div class="panel-header" style="border:none; padding:0 0 10px;">
-          <span>Connected Apps</span>
+          <span>Apps conectados</span>
+          <span class="count" id="connections-count">—</span>
         </div>
         <p style="color: var(--text-muted); font-size: 13.5px; max-width: 640px;">
-          O N.A.S.H nunca finge estar conectado a um serviço externo. A lista abaixo mostra o
-          estado real. A integração OAuth completa (Spotify, Google Calendar, Gmail, Outlook) está
-          preparada na arquitetura do backend, mas depende de credenciais de aplicativo que ainda
-          não foram configuradas nesta instalação.
+          O N.A.S.H nunca finge estar conectado a um serviço externo — esta lista mostra o estado
+          real. As conexões são autorizadas por você no Composio, que cuida do login em cada
+          serviço; o N.A.S.H nunca vê sua senha.
+        </p>
+        <p style="color: var(--text-muted); font-size: 13.5px; max-width: 640px;">
+          Qualquer ação que <strong>altere</strong> algo lá fora — enviar um e-mail, criar um
+          evento — passa pelo mesmo cartão de confirmação das ações internas. Nada sai daqui sem
+          você aprovar.
         </p>
         <div id="connections-list" style="margin-top: 10px;"></div>
       </div>

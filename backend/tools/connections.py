@@ -17,7 +17,24 @@ booleano `connected` sai daqui para o restante do sistema.
 from datetime import datetime
 from backend.models import db, Connection
 
-SUPPORTED_SERVICES = ["spotify", "google_calendar", "gmail", "outlook", "messages"]
+# Servicos previstos mesmo quando ainda nao ha linha no banco. A lista real
+# vem do banco (ver list_all_status): servico conectado pelo Composio aparece
+# sozinho, sem precisar ser declarado aqui.
+SUPPORTED_SERVICES = ["spotify", "googlecalendar", "gmail", "outlook", "messages"]
+
+# Nome bonito para a interface. Sem isto a aba Conexoes mostraria "googlecalendar".
+ROTULOS = {
+    "gmail": "Gmail",
+    "googlecalendar": "Google Agenda",
+    "googledrive": "Google Drive",
+    "googledocs": "Google Docs",
+    "googlesheets": "Google Sheets",
+    "notion": "Notion",
+    "youtube": "YouTube",
+    "spotify": "Spotify",
+    "outlook": "Outlook",
+    "messages": "Mensagens",
+}
 
 
 def _is_usable(conn: Connection) -> bool:
@@ -30,16 +47,34 @@ def _is_usable(conn: Connection) -> bool:
     return True
 
 
+def rotulo(service: str) -> str:
+    return ROTULOS.get(service, service.replace("_", " ").title())
+
+
 def get_status(service: str) -> dict:
     conn = Connection.query.filter_by(service=service).first()
     if not conn:
-        return {"service": service, "connected": False, "supported": False}
+        return {"service": service, "label": rotulo(service),
+                "connected": False, "supported": False}
     usable = _is_usable(conn)
-    return {"service": service, "connected": usable, "supported": True}
+    return {"service": service, "label": rotulo(service),
+            "connected": usable, "supported": True}
 
 
 def list_all_status():
-    return [get_status(s) for s in SUPPORTED_SERVICES]
+    """
+    Estado de TODOS os servicos conhecidos, com os conectados primeiro.
+
+    Le do banco em vez de uma lista fixa: quando um servico e conectado pelo
+    Composio, ele passa a aparecer aqui sozinho. A lista fixa anterior fazia a
+    aba Conexoes mentir - dizia "google_calendar desconectado" enquanto o
+    assistente ja usava a agenda.
+    """
+    do_banco = {c.service for c in Connection.query.all()}
+    servicos = sorted(do_banco | set(SUPPORTED_SERVICES))
+    status = [get_status(s) for s in servicos]
+    status.sort(key=lambda s: (not s["connected"], s["label"]))
+    return status
 
 
 def disconnect(service: str):
