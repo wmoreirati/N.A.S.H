@@ -277,6 +277,9 @@ def _register_routes(app: Flask):
     def api_chat():
         data = request.get_json(silent=True) or {}
         user_message = (data.get("message") or "").strip()
+        # O modo voz avisa que a resposta vai ser OUVIDA, nao lida. Muda o
+        # formato (sem listas, sem marcacao, curto), nunca o conteudo.
+        modo_voz = bool(data.get("voz"))
 
         if not user_message:
             return _json_error("A mensagem não pode estar vazia.")
@@ -298,7 +301,9 @@ def _register_routes(app: Flask):
         history = _recent_history()[:-1]  # exclui a mensagem recém-salva (vai como user_message)
 
         try:
-            result = agent.run_chat_turn(ai_provider, history, user_message)
+            result = agent.run_chat_turn(
+                ai_provider, history, user_message, modo_voz=modo_voz
+            )
         except Exception as exc:  # noqa: BLE001
             logger.exception("Erro inesperado no turno de chat")
             log_action("chat_turn_error", detail=str(exc), success=False)

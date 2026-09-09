@@ -138,11 +138,29 @@
     return new Promise((resolve) => {
       if (!window.speechSynthesis || !texto) return resolve();
 
-      // Remove marcação e LaTeX: lidos em voz alta viram ruído.
+      // Prepara o texto para ser DITO, nao lido. Sintetizador nao ignora
+      // pontuacao decorativa: ele fala "aspas", "asterisco", "hashtag". Uma
+      // resposta boa na tela vira ruido no ouvido sem esta limpeza.
       const limpo = texto
+        // Fórmulas: ler LaTeX em voz alta não ajuda ninguém.
         .replace(/\$\$[\s\S]*?\$\$/g, " fórmula ")
         .replace(/\$[^$]*\$/g, " fórmula ")
-        .replace(/[*_`#>]/g, "")
+        // Blocos e trechos de código viram uma menção curta.
+        .replace(/```[\s\S]*?```/g, " trecho de código ")
+        .replace(/`([^`]+)`/g, "$1")
+        // Links markdown: fica o texto, some a URL.
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+        // Marcadores de lista e numeração no início da linha.
+        .replace(/^\s*[-*•+]\s+/gm, "")
+        .replace(/^\s*\d+[.)]\s+/gm, "")
+        // Títulos, ênfase e citação.
+        .replace(/[*_#>]/g, "")
+        // Aspas de todo tipo: é o que mais aparece falado indevidamente,
+        // porque o assistente cita nomes de tarefa entre aspas.
+        .replace(/["“”«»„]/g, "")
+        // Separadores visuais que não se pronunciam.
+        .replace(/[|]+/g, " ")
+        .replace(/-{2,}/g, " ")
         .replace(/\s+/g, " ")
         .trim();
 
@@ -258,7 +276,8 @@
       const resp = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: mensagem }),
+        // Avisa que a resposta vai ser OUVIDA: muda o formato, nao o conteudo.
+        body: JSON.stringify({ message: mensagem, voz: true }),
       });
 
       if (resp.status === 401) {

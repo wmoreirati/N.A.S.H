@@ -314,12 +314,33 @@ def _connections_status_text() -> str:
     return "\n".join(lines)
 
 
-def build_system_prompt() -> str:
+# Regra de estilo acrescentada SO quando a resposta vai ser falada. O modo
+# especialista, com seus 8 passos, e otimo lido na tela e insuportavel ouvido:
+# "10 x 10" virava uma aula. Isto muda a FORMA, nunca o conteudo nem as
+# permissoes.
+INSTRUCAO_VOZ = """
+
+MODO VOZ (esta resposta vai ser OUVIDA, não lida):
+
+Fale como alguém falaria em voz alta, não como um documento.
+
+- Responda direto. Pergunta simples ("quanto é 10 vezes 10") merece a resposta e mais nada: "Cem." Nunca aplique a estrutura numerada do modo especialista aqui.
+- No máximo 2 ou 3 frases, a menos que peçam explicação passo a passo.
+- Nada de listas, títulos, tabelas, marcação, emoji, aspas decorativas ou fórmulas escritas. Diga "dez ao quadrado", não "10^2".
+- Nada de repetir a pergunta antes de responder.
+- Se a resposta for naturalmente longa, dê o essencial em voz e ofereça o detalhe: "Quer que eu detalhe?"
+"""
+
+
+def build_system_prompt(modo_voz: bool = False) -> str:
 
     prompt = SYSTEM_PROMPT_TEMPLATE.format(
         memory_snapshot=memory_mod.memory_context_snapshot(),
         connections_status=_connections_status_text(),
     )
+
+    if modo_voz:
+        prompt += INSTRUCAO_VOZ
 
     print(
         "[N.A.S.H PROMPT]",
@@ -1244,6 +1265,37 @@ def _fast_command(
 
             break
 
+    # Matematica FALADA. Por voz ninguem diz "asterisco": diz "dez vezes dez",
+    # que a transcricao entrega como "10 x 10" ou "10 vezes 10". Sem isto a
+    # conta mais simples escapava do roteador e ia para o modelo, que aplicava
+    # a estrutura de 8 passos do modo especialista a um "10 x 10" -- era essa a
+    # resposta arrastada que a pessoa ouvia.
+    #
+    # A troca so vale entre numeros: converter "x" solto quebraria funcoes e
+    # frases comuns.
+    calculator_expression = re.sub(
+        r"(?<=\d)\s*[xX×]\s*(?=\d)", "*", calculator_expression
+    )
+
+    faladas = (
+        (r"\bdividido\s+por\b", "/"),
+        (r"\bdividido\b",      "/"),
+        (r"\bvezes\b",         "*"),
+        (r"\bmultiplicado\s+por\b", "*"),
+        (r"\bmais\b",          "+"),
+        (r"\bmenos\b",         "-"),
+        (r"\bpor\s+cento\b",   "%"),
+    )
+    convertida = calculator_expression
+    for padrao, simbolo in faladas:
+        convertida = re.sub(padrao, simbolo, convertida)
+
+    # Só aceita a versão falada se o resultado virar aritmética pura. Assim
+    # "me fale mais sobre física" não vira "me fale + sobre física" e continua
+    # indo para o modelo, que é onde ela deve ir.
+    if re.fullmatch(r"[0-9+\-*/().%\s]+", convertida.strip() or "x"):
+        calculator_expression = convertida
+
     # Decimal brasileiro
 
     calculator_expression = re.sub(
@@ -1543,7 +1595,8 @@ def _fast_command(
 def run_chat_turn(
     provider,
     history: list[dict],
-    user_message: str
+    user_message: str,
+    modo_voz: bool = False
 ) -> dict:
 
     """
@@ -1599,7 +1652,7 @@ def run_chat_turn(
 
         {
             "role": "system",
-            "content": build_system_prompt(),
+            "content": build_system_prompt(modo_voz),
         }
 
     ]
