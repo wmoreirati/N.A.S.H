@@ -103,6 +103,31 @@
   // Falar
   // ----------------------------------------------------------------
 
+  // A sintese so pode ser iniciada a partir de um gesto do usuario no Chrome
+  // do Android: uma fala disparada dentro do retorno de um fetch e engolida em
+  // silencio. Falando uma vez (vazio) durante o toque, o navegador libera as
+  // falas seguintes daquela aba.
+  let vozLiberada = false;
+
+  function liberarVoz() {
+    if (vozLiberada || !window.speechSynthesis) return;
+    try {
+      const mudo = new SpeechSynthesisUtterance("");
+      mudo.volume = 0;
+      window.speechSynthesis.speak(mudo);
+      vozLiberada = true;
+    } catch (_) {
+      /* navegador sem sintese: o modo segue funcionando por texto */
+    }
+  }
+
+  function vozPortugues() {
+    const vozes = window.speechSynthesis.getVoices() || [];
+    return vozes.find((v) => v.lang && v.lang.toLowerCase().startsWith("pt-br"))
+        || vozes.find((v) => v.lang && v.lang.toLowerCase().startsWith("pt"))
+        || null;
+  }
+
   function falar(texto) {
     return new Promise((resolve) => {
       if (!window.speechSynthesis || !texto) return resolve();
@@ -117,13 +142,44 @@
 
       if (!limpo) return resolve();
 
+      // Resolve UMA vez, venha de onde vier: fim normal, erro, ou o cao de
+      // guarda. Sem isto, uma fala que nunca comeca trava o ciclo inteiro --
+      // e o pior e que trava calado.
+      let encerrado = false;
+      let guarda = null;
+      const terminar = () => {
+        if (encerrado) return;
+        encerrado = true;
+        if (guarda) clearInterval(guarda);
+        resolve();
+      };
+
       const fala = new SpeechSynthesisUtterance(limpo);
       fala.lang = "pt-BR";
-      fala.onend = resolve;
-      fala.onerror = resolve;
+      const voz = vozPortugues();
+      if (voz) fala.voice = voz;
+      fala.onend = terminar;
+      fala.onerror = terminar;
+
       window.speechSynthesis.cancel();
       definirEstado("N.A.S.H respondendo…", "falando");
       window.speechSynthesis.speak(fala);
+
+      // Cao de guarda: se em 1,5s nada comecou a tocar, a sintese foi engolida
+      // (tipicamente por falta de gesto do usuario) e seguimos sem ela. Depois
+      // de comecar, acompanha ate parar de falar.
+      let carencia = 0;
+      guarda = setInterval(() => {
+        carencia += 300;
+        const falando = window.speechSynthesis.speaking;
+        if (!falando && carencia >= 1500) terminar();
+        if (falando && carencia > 1500 && !window.speechSynthesis.pending) {
+          // Chrome corta falas longas por volta dos 15s; cutucar mantem viva.
+          window.speechSynthesis.pause();
+          window.speechSynthesis.resume();
+        }
+        if (carencia > 120000) terminar();
+      }, 300);
     });
   }
 
@@ -160,10 +216,15 @@
       }
 
       const texto = dados.text || "Não consegui responder agora.";
-      await falar(texto);
+      // O texto vai para a tela ANTES de falar. Se a sintese de voz falhar (o
+      // navegador pode recusar sem avisar), a resposta ainda aparece -- antes
+      // era o contrário, e uma fala engolida deixava a tela muda tambem.
       transcricao.textContent = texto;
+      await falar(texto);
     } catch (_) {
-      await falar("Não consegui falar com o servidor.");
+      const erro = "Não consegui falar com o servidor.";
+      transcricao.textContent = erro;
+      await falar(erro);
     }
 
     if (aberto) definirEstado("Toque para falar", "");
@@ -220,6 +281,9 @@
 
   function alternarEscuta() {
     if (!Reconhecimento) return;
+    // Este clique e o gesto do usuario: e aqui, e so aqui, que da para
+    // destravar a sintese de voz para o resto da conversa.
+    liberarVoz();
     if (escutando) {
       reconhecedor.stop();
       return;
@@ -242,6 +306,11 @@
     overlay.hidden = false;
     overlay.setAttribute("aria-hidden", "false");
     document.body.classList.add("voz-ativa");
+
+    // Abrir tambem e um gesto: aproveita para destravar a fala e pedir a
+    // lista de vozes, que em varios navegadores so chega de forma assincrona.
+    liberarVoz();
+    if (window.speechSynthesis) window.speechSynthesis.getVoices();
 
     if (!Reconhecimento) {
       definirEstado(
