@@ -164,6 +164,48 @@ class Project(db.Model):
         return data
 
 
+class LabEntry(db.Model):
+    """
+    Registro de experimento ou análise do Laboratório.
+
+    Os campos são os que a própria tela já prometia desde o início --
+    hipótese, procedimento, resultados e observações. É a estrutura de um
+    relatório de laboratório, que para quem estuda exatas é entrega real de
+    escola, não exercício.
+
+    Tudo é opcional menos o título: registro de experimento nasce pela metade
+    e vai sendo preenchido conforme o trabalho anda. Exigir o conjunto
+    completo na criação faria a pessoa anotar noutro lugar.
+    """
+    __tablename__ = "lab_entries"
+
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=True, index=True)
+    title = db.Column(db.String(255), nullable=False)
+    area = db.Column(db.String(40), default="geral")  # quimica, fisica, biologia...
+    hypothesis = db.Column(db.Text, default="")
+    procedure = db.Column(db.Text, default="")
+    results = db.Column(db.Text, default="")
+    observations = db.Column(db.Text, default="")
+    status = db.Column(db.String(20), default="aberto")  # aberto, concluido
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "title": self.title,
+            "area": self.area,
+            "hypothesis": self.hypothesis,
+            "procedure": self.procedure,
+            "results": self.results,
+            "observations": self.observations,
+            "status": self.status,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 class Message(db.Model):
     """Histórico de conversa (para contexto e auditoria)."""
     __tablename__ = "messages"

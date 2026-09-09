@@ -138,6 +138,8 @@
         if (view === "activity") loadActivity();
         if (view === "settings") loadSettings();
         if (view === "acessos") loadAcessos();
+        if (view === "lab") loadLab();
+        if (view === "study") loadStudy();
       });
     });
   }
@@ -255,6 +257,8 @@
         loadTasks();
         loadCalendar();
       }
+      if (document.querySelector("#view-study.active")) loadStudy();
+      if (document.querySelector("#view-lab.active")) loadLab();
       if (document.querySelector("#view-projects.active")) loadProjects();
       if (document.querySelector("#view-memory.active")) loadMemory();
     } catch (err) {
@@ -937,6 +941,287 @@
   }
 
   // ---------------------------------------------------------
+  // LABORATÓRIO
+  // ---------------------------------------------------------
+
+  const ROTULO_AREA = {
+    geral: "Geral", quimica: "Química", fisica: "Física",
+    biologia: "Biologia", matematica: "Matemática", tecnologia: "Tecnologia",
+  };
+
+  const CAMPOS_LAB = [
+    ["hypothesis", "Hipótese"],
+    ["procedure", "Procedimento"],
+    ["results", "Resultados"],
+    ["observations", "Observações"],
+  ];
+
+  async function loadLab() {
+    try {
+      const status = $("#lab-filtro").value;
+      const data = await api("/api/lab" + (status ? `?status=${status}` : ""));
+      renderLab(data.entries);
+      $("#lab-count").textContent = data.entries.length;
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  function renderLab(entries) {
+    const lista = $("#lab-list");
+    lista.innerHTML = "";
+
+    if (!entries.length) {
+      lista.innerHTML = `<div class="empty-state">
+        Nenhum registro ainda. Um experimento começa pela hipótese — o resto
+        você preenche conforme o trabalho anda.</div>`;
+      return;
+    }
+
+    entries.forEach((e) => {
+      const card = document.createElement("div");
+      card.className = "item-card";
+
+      // Só mostra as seções preenchidas: registro pela metade é o normal
+      // aqui, e exibir quatro títulos vazios só faz ruído.
+      const secoes = CAMPOS_LAB
+        .filter(([campo]) => (e[campo] || "").trim())
+        .map(([campo, titulo]) => `
+          <div class="lab-secao">
+            <span class="lab-secao-titulo">${titulo}</span>
+            <div class="lab-secao-texto">${escapeHtml(e[campo]).replace(/\n/g, "<br>")}</div>
+          </div>`).join("");
+
+      card.innerHTML = `
+        <div class="item-top">
+          <span class="badge ${e.status === "concluido" ? "baixa" : "normal"}">
+            ${e.status === "concluido" ? "Concluído" : "Em andamento"}
+          </span>
+          <span class="badge normal">${ROTULO_AREA[e.area] || e.area}</span>
+          <strong>${escapeHtml(e.title)}</strong>
+        </div>
+        ${secoes || '<div class="item-desc">Sem conteúdo preenchido ainda.</div>'}
+        <div class="item-actions">
+          <button class="btn small" data-act="editar">Editar</button>
+          <button class="btn small" data-act="analisar">Pedir análise</button>
+          <button class="btn small" data-act="alternar">
+            ${e.status === "concluido" ? "Reabrir" : "Concluir"}
+          </button>
+          <button class="btn small danger" data-act="excluir">Excluir</button>
+        </div>`;
+
+      card.querySelector('[data-act="editar"]')
+          .addEventListener("click", () => abrirFormularioLab(e));
+      card.querySelector('[data-act="analisar"]')
+          .addEventListener("click", () => pedirAnaliseLab(e));
+      card.querySelector('[data-act="alternar"]').addEventListener("click", async () => {
+        try {
+          await api(`/api/lab/${e.id}`, {
+            method: "PUT",
+            body: JSON.stringify({
+              status: e.status === "concluido" ? "aberto" : "concluido",
+            }),
+          });
+          loadLab();
+        } catch (err) { toast(err.message, "error"); }
+      });
+      card.querySelector('[data-act="excluir"]').addEventListener("click", async () => {
+        if (!confirm(`Excluir "${e.title}"? Não dá para desfazer.`)) return;
+        try {
+          await api(`/api/lab/${e.id}`, { method: "DELETE" });
+          toast("Registro excluído.", "success");
+          loadLab();
+        } catch (err) { toast(err.message, "error"); }
+      });
+
+      lista.appendChild(card);
+    });
+  }
+
+  function abrirFormularioLab(entrada) {
+    $("#lab-form").style.display = "block";
+    $("#lab-id").value = entrada ? entrada.id : "";
+    $("#lab-title").value = entrada ? entrada.title : "";
+    $("#lab-area").value = entrada ? entrada.area : "geral";
+    CAMPOS_LAB.forEach(([campo]) => {
+      $(`#lab-${campo}`).value = entrada ? (entrada[campo] || "") : "";
+    });
+    $("#lab-title").focus();
+  }
+
+  function fecharFormularioLab() {
+    $("#lab-form").style.display = "none";
+    $("#lab-id").value = "";
+  }
+
+  function dadosDoFormularioLab() {
+    const dados = {
+      title: $("#lab-title").value.trim(),
+      area: $("#lab-area").value,
+    };
+    CAMPOS_LAB.forEach(([campo]) => { dados[campo] = $(`#lab-${campo}`).value; });
+    return dados;
+  }
+
+  function pedirAnaliseLab(entrada) {
+    // Leva o registro inteiro para o chat. O assistente analisa; ele NÃO
+    // altera o registro — quem escreve no laboratório é a pessoa.
+    const partes = CAMPOS_LAB
+      .filter(([campo]) => (entrada[campo] || "").trim())
+      .map(([campo, titulo]) => `${titulo}: ${entrada[campo].trim()}`);
+
+    $('.nav-btn[data-view="central"]').click();
+    sendMessage(
+      `Analise este registro de laboratório de ${ROTULO_AREA[entrada.area] || entrada.area}.\n\n` +
+      `Título: ${entrada.title}\n${partes.join("\n")}\n\n` +
+      "Diga se a hipótese se sustenta diante dos resultados, aponte fontes de erro " +
+      "prováveis e o que faltou medir."
+    );
+  }
+
+  function initLabView() {
+    const novo = $("#lab-new-btn");
+    if (!novo) return;
+
+    novo.addEventListener("click", () => abrirFormularioLab(null));
+    $("#lab-cancel-btn").addEventListener("click", fecharFormularioLab);
+    $("#lab-filtro").addEventListener("change", loadLab);
+
+    $("#lab-analisar-btn").addEventListener("click", () => {
+      const dados = dadosDoFormularioLab();
+      if (!dados.title) { toast("Dê um título antes de pedir a análise.", "error"); return; }
+      pedirAnaliseLab(dados);
+    });
+
+    $("#lab-save-btn").addEventListener("click", async () => {
+      const dados = dadosDoFormularioLab();
+      if (!dados.title) { toast("O título é obrigatório.", "error"); return; }
+
+      const id = $("#lab-id").value;
+      try {
+        await api(id ? `/api/lab/${id}` : "/api/lab", {
+          method: id ? "PUT" : "POST",
+          body: JSON.stringify(dados),
+        });
+        toast(id ? "Registro atualizado." : "Registro criado.", "success");
+        fecharFormularioLab();
+        loadLab();
+      } catch (err) {
+        toast(err.message, "error");
+      }
+    });
+  }
+
+  // ---------------------------------------------------------
+  // ESTUDO
+  // ---------------------------------------------------------
+
+  async function loadStudy() {
+    try {
+      const data = await api("/api/tasks?status=pendente");
+      const hoje = new Date().toISOString().slice(0, 10);
+      // "Hoje" inclui o que ficou para trás: tarefa atrasada some da vista se
+      // o filtro for só a data de hoje, e é justamente a que mais importa.
+      const doDia = data.tasks.filter((t) => t.date && t.date <= hoje);
+      renderStudy(doDia);
+      $("#study-count").textContent = doDia.length;
+    } catch (err) {
+      toast(err.message, "error");
+    }
+  }
+
+  function renderStudy(tarefas) {
+    const lista = $("#study-list");
+    lista.innerHTML = "";
+
+    if (!tarefas.length) {
+      lista.innerHTML = `<div class="empty-state">
+        Nada marcado para hoje. Monte um plano acima e ele aparece aqui.</div>`;
+      return;
+    }
+
+    const hoje = new Date().toISOString().slice(0, 10);
+    tarefas.forEach((t) => {
+      const atrasada = t.date < hoje;
+      const card = document.createElement("div");
+      card.className = "item-card";
+      card.innerHTML = `
+        <div class="item-top">
+          <span class="badge ${atrasada ? "alta" : "normal"}">
+            ${atrasada ? "Atrasada · " + t.date.slice(8, 10) + "/" + t.date.slice(5, 7) : "Hoje"}
+          </span>
+          <strong>${escapeHtml(t.title)}</strong>
+        </div>
+        ${t.description ? `<div class="item-desc">${escapeHtml(t.description)}</div>` : ""}
+        <div class="item-actions">
+          <button class="btn small" data-act="concluir">Concluir</button>
+          <button class="btn small" data-act="estudar">Estudar isto agora</button>
+        </div>`;
+
+      card.querySelector('[data-act="concluir"]').addEventListener("click", async () => {
+        try {
+          await api(`/api/tasks/${t.id}/complete`, { method: "POST" });
+          toast("Concluída.", "success");
+          loadStudy();
+          refreshStatus();
+        } catch (err) { toast(err.message, "error"); }
+      });
+
+      card.querySelector('[data-act="estudar"]').addEventListener("click", () => {
+        $('.nav-btn[data-view="central"]').click();
+        sendMessage(`Me ensine isto passo a passo: ${t.title}`);
+      });
+
+      lista.appendChild(card);
+    });
+  }
+
+  function initStudyView() {
+    const btn = $("#study-plan-btn");
+    if (!btn) return;
+
+    function assunto() {
+      const texto = $("#study-assunto").value.trim();
+      if (!texto) {
+        toast("Diga qual assunto você precisa estudar.", "error");
+        $("#study-assunto").focus();
+        return null;
+      }
+      return texto;
+    }
+
+    btn.addEventListener("click", () => {
+      const tema = assunto();
+      if (!tema) return;
+
+      const data = $("#study-data").value;
+      const nivel = $("#study-nivel").value;
+      const area = $("#study-area").value;
+
+      $('.nav-btn[data-view="central"]').click();
+      // Pedido específico: prazo, nível e formato. Um pedido vago devolve um
+      // plano vago, e era isso que o botão antigo fazia.
+      sendMessage(
+        `Monte um plano de estudos de ${area} sobre "${tema}" ` +
+        `(${nivel})${data ? `, com prazo até ${data}` : ""}. ` +
+        "Crie um projeto para o plano e uma tarefa por sessão de estudo, cada uma " +
+        "com data e com o subtópico no título. Distribua as sessões até o prazo, " +
+        "sem passar de uma por dia."
+      );
+    });
+
+    $("#study-explicar-btn").addEventListener("click", () => {
+      const tema = assunto();
+      if (!tema) return;
+      $('.nav-btn[data-view="central"]').click();
+      sendMessage(
+        `Explique passo a passo, do começo: ${tema} (${$("#study-area").value}). ` +
+        "Comece pelos conceitos e fórmulas antes de resolver qualquer exemplo."
+      );
+    });
+  }
+
+  // ---------------------------------------------------------
   // SESSÃO E ACESSOS
   // ---------------------------------------------------------
 
@@ -1134,6 +1419,7 @@ Anote agora: ela não será mostrada de novo.`);
     initMemoryView();
     initSettingsView();
     initStudyView();
+    initLabView();
     initQuickSuggestions();
     initClock();
     initSpeech();

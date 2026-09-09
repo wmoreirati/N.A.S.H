@@ -251,11 +251,14 @@ TOOLS = [
     {
         "type": "function",
         "function": {
-            "name": "tool_search_web",
-            "description": "Pesquisa na internet. Só use se souber que há um serviço de busca configurado; caso contrário, informe ao usuário que não há acesso web nesta instalação.",
+            "name": "tool_search_papers",
+            "description": "Pesquisa em ARTIGOS CIENTÍFICOS revisados por pares (não é busca na internet aberta). Use para embasar explicações de química, física, biologia e afins com fonte citável. Não serve para notícia, preço, horário ou qualquer informação do dia a dia.",
             "parameters": {
                 "type": "object",
-                "properties": {"query": {"type": "string"}},
+                "properties": {
+                    "query": {"type": "string", "description": "O tema a pesquisar, de preferência em inglês (a base é majoritariamente em inglês)."},
+                    "ano_minimo": {"type": "integer", "description": "Opcional: só artigos deste ano em diante."},
+                },
                 "required": ["query"],
             },
         },

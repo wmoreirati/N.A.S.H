@@ -239,24 +239,95 @@
         <div class="dash-eyebrow">N.A.S.H Study Mode</div>
         <h2 class="dash-title" style="font-size: 22px;">Aprenda com método, sem pular etapas.</h2>
         <p class="dash-text" style="max-width: 640px;">
-          Peça uma explicação ou um plano. O N.A.S.H identifica dados, conceitos e fórmulas
-          antes de resolver passo a passo.
+          Diga o que precisa estudar e até quando. O plano vira tarefas com data na
+          sua Agenda — nada é criado sem você confirmar.
         </p>
-        <button class="btn primary" id="study-plan-btn" style="margin-top: 10px;">Criar plano de estudos</button>
+
+        <div class="inline-form" id="study-form" style="display:block; margin-top:14px; max-width:640px;">
+          <div class="row">
+            <input type="text" id="study-assunto" placeholder="Assunto (ex.: funções orgânicas)">
+            <select id="study-area">
+              <option value="química">Química</option>
+              <option value="física">Física</option>
+              <option value="matemática">Matemática</option>
+              <option value="biologia">Biologia</option>
+              <option value="outra">Outra</option>
+            </select>
+          </div>
+          <div class="row">
+            <input type="date" id="study-data" title="Data da prova ou prazo">
+            <select id="study-nivel">
+              <option value="do zero">Começando do zero</option>
+              <option value="revisão">Revisão</option>
+              <option value="aprofundamento">Aprofundamento</option>
+            </select>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="study-plan-btn">Montar plano de estudos</button>
+            <button class="btn" id="study-explicar-btn"
+                    title="Vai para o chat com uma explicação passo a passo deste assunto">Explicar passo a passo</button>
+          </div>
+        </div>
+
+        <div class="panel-header" style="border:none; padding:20px 0 8px;">
+          <span>Seus estudos de hoje</span>
+          <span class="count" id="study-count">0</span>
+        </div>
+        <div id="study-list" class="lista-rolavel"></div>
       </div>
     </section>
 
     <!-- ---- LABORATÓRIO ---- -->
     <section class="view" id="view-lab">
-      <div class="panel" style="flex:1; min-height:0; padding: 20px; overflow-y:auto;">
-        <div class="dash-eyebrow">N.A.S.H Lab</div>
-        <h2 class="dash-title" style="font-size: 22px;">Experimentos e análises com contexto.</h2>
-        <p class="dash-text" style="max-width: 640px;">
-          Estrutura reservada para hipóteses, procedimentos, resultados e observações.
-          Esta área ainda não tem funcionalidade própria no backend — nenhuma ação aqui é
-          persistida. Peça análises diretamente pelo chat, na Central.
-        </p>
-        <span class="badge normal" style="margin-top: 8px; display:inline-block;">Em breve</span>
+      <div class="panel list-view" style="flex:1; min-height:0; padding: 14px;">
+        <div class="panel-header" style="border:none; padding:0;">
+          <span>Laboratório</span>
+          <span class="count" id="lab-count">0</span>
+        </div>
+
+        <div class="list-toolbar">
+          <button class="btn" id="lab-new-btn">+ Novo registro</button>
+          <select id="lab-filtro" class="filtro-lab">
+            <option value="">Todos</option>
+            <option value="aberto">Em andamento</option>
+            <option value="concluido">Concluídos</option>
+          </select>
+        </div>
+
+        <div class="inline-form" id="lab-form" style="display:none;">
+          <input type="hidden" id="lab-id">
+          <div class="row">
+            <input type="text" id="lab-title" placeholder="Título do experimento ou análise">
+            <select id="lab-area">
+              <option value="geral">Geral</option>
+              <option value="quimica">Química</option>
+              <option value="fisica">Física</option>
+              <option value="biologia">Biologia</option>
+              <option value="matematica">Matemática</option>
+              <option value="tecnologia">Tecnologia</option>
+            </select>
+          </div>
+          <label class="rotulo-lab" for="lab-hypothesis">Hipótese</label>
+          <textarea id="lab-hypothesis" placeholder="O que você espera que aconteça, e por quê?"></textarea>
+
+          <label class="rotulo-lab" for="lab-procedure">Procedimento</label>
+          <textarea id="lab-procedure" placeholder="Materiais e passos, na ordem em que foram feitos."></textarea>
+
+          <label class="rotulo-lab" for="lab-results">Resultados</label>
+          <textarea id="lab-results" placeholder="Medidas e dados obtidos — números, não impressões."></textarea>
+
+          <label class="rotulo-lab" for="lab-observations">Observações</label>
+          <textarea id="lab-observations" placeholder="O que fugiu do esperado, fontes de erro, o que faria diferente."></textarea>
+
+          <div class="row">
+            <button class="btn primary" id="lab-save-btn">Salvar</button>
+            <button class="btn" id="lab-cancel-btn">Cancelar</button>
+            <button class="btn" id="lab-analisar-btn"
+                    title="Leva este registro para o chat e pede uma análise">Pedir análise</button>
+          </div>
+        </div>
+
+        <div id="lab-list" class="lista-rolavel"></div>
       </div>
     </section>
 

@@ -38,7 +38,7 @@ from backend.security.validation import ValidationError
 from backend.memory import memory as memory_mod
 from backend.tools import tasks, projects, calendar as calendar_mod, connections
 from backend.security.auth import e_admin, escopar, marcar_dono
-from backend.tools import composio_tools
+from backend.tools import composio_tools, pesquisa
 from backend.models import db, PendingAction, Task, Project, Memory
 
 
@@ -59,7 +59,7 @@ READ_TOOL_NAMES = {
     "tool_list_memories",
     "tool_get_calendar",
     "tool_get_datetime",
-    "tool_search_web",
+    "tool_search_papers",
     "tool_spotify_search",
 }
 
@@ -277,13 +277,16 @@ O status real das conexões está listado abaixo.
 
 Confie apenas nesse status.
 
-BUSCA WEB:
+PESQUISA:
 
-Você só possui acesso à web quando a ferramenta tool_search_web retornar um resultado real.
+Você NÃO tem acesso à internet aberta. O que existe é tool_search_papers, que procura em
+artigos científicos revisados por pares.
 
-Se a ferramenta informar que não existe acesso, informe isso claramente ao usuário.
+Use quando a pergunta for de ciência e a resposta ganhar com evidência citável — e diga de
+onde veio, com título e ano.
 
-Nunca invente resultados de pesquisa.
+Para notícia, preço, horário, cotação ou qualquer coisa do dia a dia, avise que não tem
+como consultar. Nunca invente resultado de pesquisa nem finja ter olhado a internet.
 
 MEMÓRIA ATUAL DO USUÁRIO:
 
@@ -408,12 +411,12 @@ def _dispatch_read(tool_name: str, args: dict) -> dict:
                 "day_of_week": now.strftime("%A"),
             }
 
-        if tool_name == "tool_search_web":
+        if tool_name == "tool_search_papers":
 
-            return {
-                "ok": False,
-                "message": "Busca web não configurada nesta instalação.",
-            }
+            return pesquisa.buscar_artigos(
+                query=args.get("query", ""),
+                ano_minimo=args.get("ano_minimo"),
+            )
 
         if tool_name == "tool_spotify_search":
 

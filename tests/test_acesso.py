@@ -6,6 +6,7 @@ pessoa conectadas (Gmail, Agenda, Drive). "Quem entra" e "quem vê o quê" não
 podem depender de alguém lembrar de proteger a rota certa.
 """
 import os
+import re
 import tempfile
 import unittest
 
@@ -143,11 +144,12 @@ class AcessoTestCase(unittest.TestCase):
                 continue
             # Rota com parâmetro: usa um id que não existe, o que ainda assim
             # tem de esbarrar na sessão antes de chegar ao banco.
-            alvo = caminho.replace("<int:pending_id>", "1") \
-                          .replace("<int:task_id>", "1") \
-                          .replace("<int:project_id>", "1") \
-                          .replace("<int:memory_id>", "1") \
-                          .replace("<int:user_id>", "1")
+            #
+            # A substituição é por padrão, não por lista de nomes. Com lista,
+            # um parâmetro novo passa batido: a URL fica com o `<...>` literal,
+            # não casa com rota nenhuma, e o 404 do Flask parece "rota
+            # desprotegida" quando na verdade o teste é que não testou nada.
+            alvo = re.sub(r"<(?:int|string|path):(\w+)>", "1", caminho)
             metodo = "POST" if "POST" in regra.methods else \
                      "GET" if "GET" in regra.methods else \
                      sorted(regra.methods - {"HEAD", "OPTIONS"})[0]

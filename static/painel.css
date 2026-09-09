@@ -88,6 +88,64 @@
   }
 }
 
+/* ---------- Laboratório e Estudo ---------- */
+
+.lista-rolavel {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.rotulo-lab {
+  display: block;
+  margin: 10px 0 4px;
+  font-family: var(--font-ui);
+  font-size: .76rem;
+  font-weight: 600;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.filtro-lab {
+  background: var(--bg-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 10px;
+  font-family: var(--font-body);
+  font-size: .88rem;
+}
+
+/* Seções de um registro. O rótulo fica em cima, discreto: o que importa ler
+   é o conteúdo, não o nome do campo. */
+.lab-secao { margin-top: 8px; }
+
+.lab-secao-titulo {
+  display: block;
+  font-family: var(--font-ui);
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  opacity: .85;
+}
+
+.lab-secao-texto {
+  margin-top: 2px;
+  font-size: .9rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Campo de data no tema escuro: sem isto o seletor do Chrome aparece com o
+   ícone preto sobre fundo escuro, praticamente invisível. */
+#study-form input[type="date"] { color-scheme: dark; }
+
 /* ---------- Cartões da lista de acessos ---------- */
 
 /* Ações em linha que quebram bem no celular, onde três botões não cabem

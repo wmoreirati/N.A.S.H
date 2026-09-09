@@ -63,7 +63,7 @@ TOOL_PERMISSIONS = {
     "tool_get_calendar": READ,
 
     # Web
-    "tool_search_web": READ,  # não altera estado, mas depende de serviço externo real
+    "tool_search_papers": READ,  # não altera estado, mas depende de serviço externo real
 
     # Spotify (arquitetura preparada, sem execução real sem conexão)
     "tool_spotify_control": SPOTIFY,

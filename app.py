@@ -74,6 +74,7 @@ def _register_routes(app: Flask):
     from backend.tools import projects as projects_mod
     from backend.tools import connections as connections_mod
     from backend.tools import calendar as calendar_mod
+    from backend.tools import lab as lab_mod
     from backend.memory import memory as memory_mod
     from backend.security import auth
     from backend.tools import email as email_mod
@@ -654,6 +655,56 @@ def _register_routes(app: Flask):
     # -----------------------------------------------------------------
     # Agenda / Conexões externas
     # -----------------------------------------------------------------
+
+    # -----------------------------------------------------------------
+    # Laboratório
+    # -----------------------------------------------------------------
+
+    @app.route("/api/lab", methods=["GET"])
+    def api_list_lab():
+        return jsonify({
+            "ok": True,
+            "entries": lab_mod.list_entries(
+                status=request.args.get("status"),
+                area=request.args.get("area"),
+            ),
+        })
+
+    @app.route("/api/lab", methods=["POST"])
+    def api_create_lab():
+        dados = request.get_json(silent=True) or {}
+        resultado, erro = _handle_mutation(
+            lab_mod.create_entry,
+            title=dados.get("title", ""),
+            area=dados.get("area", "geral"),
+            hypothesis=dados.get("hypothesis", ""),
+            procedure=dados.get("procedure", ""),
+            results=dados.get("results", ""),
+            observations=dados.get("observations", ""),
+            action="lab.criar",
+        )
+        if erro:
+            return _json_error(*erro)
+        return jsonify({"ok": True, "entry": resultado})
+
+    @app.route("/api/lab/<int:entry_id>", methods=["PUT"])
+    def api_update_lab(entry_id):
+        dados = request.get_json(silent=True) or {}
+        resultado, erro = _handle_mutation(
+            lab_mod.update_entry, entry_id, action="lab.atualizar", **dados
+        )
+        if erro:
+            return _json_error(*erro)
+        return jsonify({"ok": True, "entry": resultado})
+
+    @app.route("/api/lab/<int:entry_id>", methods=["DELETE"])
+    def api_delete_lab(entry_id):
+        resultado, erro = _handle_mutation(
+            lab_mod.delete_entry, entry_id, action="lab.excluir", permission="DELETE"
+        )
+        if erro:
+            return _json_error(*erro)
+        return jsonify({"ok": True, "result": resultado})
 
     @app.route("/api/calendar")
     def api_calendar():
