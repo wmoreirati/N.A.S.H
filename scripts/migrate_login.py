@@ -7,7 +7,8 @@ Uso:
 
 O que faz, nesta ordem:
   1. cria a tabela `users` (via create_all, que só acrescenta o que falta);
-  2. acrescenta a coluna `user_id` nas tabelas de dado pessoal.
+  2. acrescenta a coluna `user_id` nas tabelas de dado pessoal;
+  3. acrescenta em `users` as colunas de recuperação de senha.
 
 Por que um script à parte do `init_db.py`: `create_all` cria tabela que não
 existe, mas NUNCA altera tabela que já existe. As tabelas de produção já
@@ -117,7 +118,20 @@ def main() -> int:
         for t in ausentes:
             print(f"  ! `{t}` não existe neste banco — pulada")
 
-        # --- 3. quanto ficou órfão --------------------------------------
+        # --- 3. colunas de recuperação de senha em `users` ---------------
+        # Vieram depois do login, quando a recuperação por e-mail entrou.
+        # Guardam o HASH do token e a validade -- nunca o token em si.
+        colunas_users = {c["name"] for c in inspetor.get_columns("users")}
+        for coluna, tipo in (("reset_token_hash", "TEXT"),
+                             ("reset_expira_em", "TIMESTAMP")):
+            if coluna in colunas_users:
+                print(f"  = `users` já tinha {coluna}")
+                continue
+            with db.engine.begin() as conexao:
+                conexao.execute(text(f"ALTER TABLE users ADD COLUMN {coluna} {tipo}"))
+            print(f"  + {coluna} acrescentada em `users`")
+
+        # --- 4. quanto ficou órfão --------------------------------------
         print()
         total_orfao = 0
         for tabela in TABELAS_COM_DONO:

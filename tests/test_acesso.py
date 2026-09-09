@@ -115,12 +115,23 @@ class AcessoTestCase(unittest.TestCase):
         exigindo sessão. Este teste falha se o conjunto público crescer sem
         que alguém tenha pensado a respeito.
         """
-        # Rotas que PODEM ser alcançadas sem sessão. Qualquer outra tem de
-        # barrar. Note que não dá para deduzir isto pelo código de resposta:
-        # /api/auth/login também devolve 401 quando a credencial vem vazia.
+        # Rotas que PODEM ser alcançadas sem sessão, e por quê. Qualquer outra
+        # tem de barrar. Note que não dá para deduzir isto pelo código de
+        # resposta: /api/auth/login também devolve 401 com credencial vazia.
+        #
+        # Este conjunto é para crescer com relutância. Se um teste falhar aqui,
+        # a pergunta certa é "esta rota PRECISA ser pública?", não "como faço
+        # o teste passar?".
         PERMITIDAS = {
-            "/login", "/api/auth/registrar", "/api/auth/login",
-            "/api/auth/logout", "/api/auth/eu",
+            "/login",                  # a própria tela de entrada
+            "/api/auth/registrar",     # pedir acesso é, por definição, sem sessão
+            "/api/auth/login",
+            "/api/auth/logout",
+            "/api/auth/eu",            # o front pergunta quem está logado
+            "/api/version",            # confere o deploy de fora; só expõe o commit
+            "/api/auth/esqueci",       # quem esqueceu a senha não consegue entrar
+            "/redefinir",              # a tela aberta pelo link do e-mail
+            "/api/auth/redefinir",     # protegida pelo token, não pela sessão
         }
 
         cliente = self._cliente()

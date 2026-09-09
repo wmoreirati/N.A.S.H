@@ -8,6 +8,7 @@
   const abaPedir = $("#aba-pedir");
   const formEntrar = $("#form-entrar");
   const formPedir = $("#form-pedir");
+  const formEsqueci = $("#form-esqueci");
   const aviso = $("#aviso");
 
   function mostrarAviso(texto, tipo) {
@@ -26,6 +27,15 @@
     abaPedir.setAttribute("aria-selected", String(!entrar));
     formEntrar.hidden = !entrar;
     formPedir.hidden = entrar;
+    // Recuperação é um desvio dentro de "Entrar", não uma terceira aba:
+    // trocar de aba sempre volta ao formulário principal.
+    formEsqueci.hidden = true;
+    limparAviso();
+  }
+
+  function mostrarEsqueci(mostrar) {
+    formEntrar.hidden = mostrar;
+    formEsqueci.hidden = !mostrar;
     limparAviso();
   }
 
@@ -65,6 +75,27 @@
       return;
     }
     mostrarAviso(dados.error || "Não foi possível entrar.", "erro");
+  });
+
+  $("#abrir-esqueci").addEventListener("click", () => mostrarEsqueci(true));
+  $("#voltar-entrar").addEventListener("click", () => mostrarEsqueci(false));
+
+  formEsqueci.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    limparAviso();
+    const { ok, dados } = await enviar(
+      "/api/auth/esqueci",
+      { email: $("#esqueci-email").value },
+      formEsqueci.querySelector("button[type=submit]")
+    );
+    if (ok && dados.ok) {
+      formEsqueci.reset();
+      // A resposta é a mesma exista a conta ou não -- de propósito, para esta
+      // tela não virar uma forma de descobrir quem tem acesso.
+      mostrarAviso(dados.mensagem || "Link enviado.", "ok");
+      return;
+    }
+    mostrarAviso(dados.error || "Não foi possível enviar o link.", "erro");
   });
 
   formPedir.addEventListener("submit", async (ev) => {

@@ -9,106 +9,7 @@
 <title>N.A.S.H — Acesso</title>
 <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-<style>
-  /* Layout próprio da porta de entrada. Reaproveita os tokens do style.css
-     (cores, fontes, raio) para a tela de login não parecer outro produto. */
-  body { overflow: auto; }
-
-  .porta {
-    min-height: 100dvh;
-    display: grid;
-    place-items: center;
-    padding: 24px 16px;
-    background:
-      radial-gradient(1100px 520px at 50% -12%, rgba(47,111,237,.16), transparent 62%),
-      var(--bg);
-  }
-
-  .cartao {
-    width: 100%;
-    max-width: 420px;
-    background: var(--panel);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    box-shadow: var(--glow-cyan);
-    padding: 28px 24px 24px;
-  }
-
-  .marca { text-align: center; margin-bottom: 22px; }
-  .marca-simbolo {
-    width: 54px; height: 54px; margin: 0 auto 12px;
-    display: grid; place-items: center;
-    border: 1px solid var(--border-bright); border-radius: 50%;
-    color: var(--cyan); box-shadow: var(--glow-cyan);
-  }
-  .marca-nome {
-    font-family: var(--font-display); font-weight: 800;
-    font-size: 1.45rem; letter-spacing: .16em; color: var(--text);
-  }
-  .marca-sub {
-    font-family: var(--font-ui); font-size: .82rem;
-    letter-spacing: .18em; text-transform: uppercase; color: var(--text-muted);
-    margin-top: 6px;
-  }
-
-  .abas { display: flex; gap: 6px; margin-bottom: 20px; }
-  .aba {
-    flex: 1; padding: 9px 8px; cursor: pointer;
-    background: var(--panel-2); color: var(--text-muted);
-    border: 1px solid var(--border); border-radius: var(--radius);
-    font-family: var(--font-ui); font-weight: 600; font-size: .9rem;
-    letter-spacing: .06em; text-transform: uppercase;
-  }
-  .aba[aria-selected="true"] {
-    color: var(--text); border-color: var(--border-bright);
-    background: linear-gradient(180deg, rgba(47,111,237,.20), rgba(47,111,237,.05));
-  }
-
-  .campo { margin-bottom: 14px; }
-  .campo label {
-    display: block; margin-bottom: 6px;
-    font-family: var(--font-ui); font-size: .82rem; font-weight: 600;
-    letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
-  }
-  .campo input {
-    width: 100%; padding: 11px 12px;
-    background: var(--bg-alt); color: var(--text);
-    border: 1px solid var(--border); border-radius: var(--radius);
-    font-family: var(--font-body); font-size: .95rem;
-  }
-  .campo input:focus {
-    outline: none; border-color: var(--cyan); box-shadow: var(--glow-cyan);
-  }
-
-  .enviar {
-    width: 100%; padding: 12px; margin-top: 6px; cursor: pointer;
-    background: var(--cyan); color: #fff; border: none;
-    border-radius: var(--radius);
-    font-family: var(--font-ui); font-weight: 700; font-size: .95rem;
-    letter-spacing: .08em; text-transform: uppercase;
-  }
-  .enviar:hover { background: var(--cyan-dim); }
-  .enviar:disabled { opacity: .55; cursor: progress; }
-
-  .aviso {
-    margin-top: 16px; padding: 11px 12px; border-radius: var(--radius);
-    font-size: .88rem; line-height: 1.45; display: none;
-  }
-  .aviso.erro {
-    display: block; color: var(--red);
-    background: rgba(255,84,112,.09); border: 1px solid rgba(255,84,112,.35);
-  }
-  .aviso.ok {
-    display: block; color: var(--green);
-    background: rgba(53,226,160,.09); border: 1px solid rgba(53,226,160,.35);
-  }
-
-  .nota {
-    margin-top: 18px; text-align: center;
-    font-size: .8rem; line-height: 1.5; color: var(--text-faint);
-  }
-  [hidden] { display: none !important; }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', filename='acesso.css') }}">
 </head>
 <body>
 
@@ -143,6 +44,21 @@
         <input type="password" id="entrar-senha" autocomplete="current-password" required>
       </div>
       <button type="submit" class="enviar">Entrar</button>
+      <div class="linha-elo">
+        <button type="button" class="elo" id="abrir-esqueci">Esqueci minha senha</button>
+      </div>
+    </form>
+
+    <form id="form-esqueci" novalidate hidden>
+      <div class="campo">
+        <label for="esqueci-email">Seu e-mail</label>
+        <input type="email" id="esqueci-email" autocomplete="email" required>
+        <p class="ajuda">Enviamos um link para você criar uma nova senha.</p>
+      </div>
+      <button type="submit" class="enviar">Enviar link</button>
+      <div class="linha-elo">
+        <button type="button" class="elo" id="voltar-entrar">Voltar para o login</button>
+      </div>
     </form>
 
     <form id="form-pedir" novalidate hidden>

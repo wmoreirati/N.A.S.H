@@ -60,10 +60,19 @@ CREATE INDEX IF NOT EXISTS ix_memories_user_id        ON memories (user_id);
 CREATE INDEX IF NOT EXISTS ix_messages_user_id        ON messages (user_id);
 CREATE INDEX IF NOT EXISTS ix_pending_actions_user_id ON pending_actions (user_id);
 
+-- ---------------------------------------------------------------------------
+-- 3. Recuperacao de senha
+-- ---------------------------------------------------------------------------
+-- Guardam o HASH do token de recuperacao e a validade, nunca o token em si:
+-- quem ler o banco nao consegue redefinir a senha de ninguem.
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_hash TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_expira_em  TIMESTAMP WITHOUT TIME ZONE;
+
 COMMIT;
 
 -- ===========================================================================
--- 3. Conferencia (nao altera nada)
+-- 4. Conferencia (nao altera nada)
 -- ===========================================================================
 -- Esperado: as 5 linhas com tem_user_id = true, e orfaos > 0 nas tabelas que
 -- ja tinham dados. Orfao aqui nao e erro: e registro esperando adocao pelo adm.

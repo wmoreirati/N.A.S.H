@@ -76,6 +76,7 @@ def _register_routes(app: Flask):
     from backend.tools import calendar as calendar_mod
     from backend.memory import memory as memory_mod
     from backend.security import auth
+    from backend.tools import email as email_mod
     from backend.security.audit import log_action
     from backend.security.validation import ValidationError
 
@@ -143,6 +144,10 @@ def _register_routes(app: Flask):
         "api_login",
         "api_eu",
         "api_logout",
+        "api_version",
+        "api_esqueci_senha",
+        "pagina_redefinir",
+        "api_redefinir_senha",
     }
 
     @app.before_request
@@ -156,6 +161,30 @@ def _register_routes(app: Flask):
         if request.path.startswith("/api/"):
             return jsonify({"ok": False, "error": "Faça login para continuar."}), 401
         return redirect(url_for("pagina_login"))
+
+    @app.route("/api/version")
+    def api_version():
+        """
+        Qual código está realmente no ar.
+
+        É público de propósito: serve justamente para conferir um deploy de
+        fora, sem sessão. Já aconteceu de a Vercel reconstruir o commit antigo
+        e o painel dizer "concluído" -- sem isto, a única forma de perceber era
+        procurar um trecho de arquivo estático, que não distingue nada quando o
+        arquivo não mudou.
+
+        Expõe só o identificador do commit e a região. Nada de credencial,
+        nada de configuração.
+        """
+        commit = (os.environ.get("VERCEL_GIT_COMMIT_SHA") or "").strip()
+        return jsonify({
+            "ok": True,
+            "commit": commit[:7] or "desconhecido",
+            "commit_completo": commit or None,
+            "branch": os.environ.get("VERCEL_GIT_COMMIT_REF") or None,
+            "regiao": os.environ.get("VERCEL_REGION") or None,
+            "ambiente": os.environ.get("VERCEL_ENV") or "local",
+        })
 
     @app.route("/login")
     def pagina_login():
@@ -176,6 +205,19 @@ def _register_routes(app: Flask):
             return _json_error(exc.mensagem, exc.status)
 
         log_action("auth.registrar", detail=usuario.email, permission="READ", success=True)
+
+        # Avisa quem pode liberar. Sem isto, o pedido so aparece se o adm
+        # abrir o app e olhar -- e ninguem fica atualizando painel.
+        if not usuario.aprovado:
+            from backend.models import User
+            for adm in User.query.filter_by(is_admin=True).all():
+                _avisar(
+                    email_mod.pedido_de_acesso_para_admin,
+                    destinatario_admin=adm.email,
+                    nome=usuario.name or "",
+                    email=usuario.email,
+                    link_painel=_endereco("/"),
+                )
         if usuario.aprovado:
             auth.iniciar_sessao(usuario)
             return jsonify({"ok": True, "usuario": usuario.to_dict(), "liberado": True})
@@ -204,6 +246,116 @@ def _register_routes(app: Flask):
         auth.encerrar_sessao()
         return jsonify({"ok": True})
 
+    def _avisar(funcao, *args, **kwargs) -> bool:
+        """
+        Dispara um aviso por e-mail sem deixar que ele derrube o fluxo.
+
+        O módulo de e-mail já trata as próprias falhas, mas depender disso
+        seria confiar que ele nunca vai mudar. Cadastro, aprovação e
+        recuperação precisam funcionar com o Gmail fora do ar -- só sem aviso.
+        """
+        try:
+            return bool(funcao(*args, **kwargs))
+        except Exception:  # noqa: BLE001 — aviso nunca é motivo para falhar
+            logger.exception("Falha ao enviar aviso por e-mail (fluxo segue)")
+            return False
+
+    def _endereco(caminho: str = "") -> str:
+        """URL absoluta desta instalação — o link do e-mail precisa dela."""
+        return request.url_root.rstrip("/") + caminho
+
+    @app.route("/api/auth/esqueci", methods=["POST"])
+    def api_esqueci_senha():
+        """
+        Pede um link de recuperação.
+
+        Responde SEMPRE a mesma coisa, exista o e-mail ou não. Diferenciar
+        transformaria esta rota numa forma de descobrir quem tem conta aqui --
+        e ela é pública.
+        """
+        dados = request.get_json(silent=True) or {}
+        email = (dados.get("email") or "").strip().lower()
+
+        resposta = jsonify({
+            "ok": True,
+            "mensagem": "Se existir uma conta com esse e-mail, o link de "
+                        "recuperação já está a caminho. Confira a caixa de entrada.",
+        })
+
+        from backend.models import User
+        usuario = User.query.filter_by(email=email).first() if email else None
+        if not usuario:
+            return resposta
+
+        token = auth.criar_token_de_recuperacao(usuario)
+        enviado = _avisar(
+            email_mod.recuperacao_de_senha,
+            destinatario=usuario.email,
+            nome=usuario.name or "",
+            link=_endereco(f"/redefinir?token={token}"),
+            validade_horas=auth.VALIDADE_TOKEN_HORAS,
+        )
+        log_action("auth.esqueci", detail=f"{usuario.email} enviado={enviado}",
+                   permission="READ", success=enviado)
+        return resposta
+
+    @app.route("/redefinir")
+    def pagina_redefinir():
+        return render_template("redefinir.html", token=request.args.get("token", ""))
+
+    @app.route("/api/auth/redefinir", methods=["POST"])
+    def api_redefinir_senha():
+        dados = request.get_json(silent=True) or {}
+        try:
+            usuario = auth.concluir_recuperacao(
+                dados.get("token", ""), dados.get("nova_senha", "")
+            )
+        except auth.AuthError as exc:
+            return _json_error(exc.mensagem, exc.status)
+
+        log_action("auth.redefinir", detail=usuario.email, permission="WRITE", success=True)
+        return jsonify({"ok": True, "mensagem": "Senha alterada. Já pode entrar."})
+
+    @app.route("/api/auth/trocar-senha", methods=["POST"])
+    @auth.login_required
+    def api_trocar_senha():
+        dados = request.get_json(silent=True) or {}
+        try:
+            auth.trocar_senha(
+                auth.usuario_atual(),
+                dados.get("senha_atual", ""),
+                dados.get("nova_senha", ""),
+            )
+        except auth.AuthError as exc:
+            return _json_error(exc.mensagem, exc.status)
+
+        log_action("auth.trocar_senha", detail=auth.usuario_atual().email,
+                   permission="WRITE", success=True)
+        return jsonify({"ok": True, "mensagem": "Senha alterada."})
+
+    @app.route("/api/admin/usuarios/<int:user_id>/redefinir-senha", methods=["POST"])
+    @auth.admin_required
+    def api_admin_redefinir_senha(user_id: int):
+        try:
+            usuario, temporaria = auth.redefinir_senha(user_id)
+        except auth.AuthError as exc:
+            return _json_error(exc.mensagem, exc.status)
+
+        # A senha vai no log só como "quem", nunca o valor.
+        log_action("auth.redefinir_senha", detail=usuario.email,
+                   permission="WRITE", success=True)
+        enviada = _avisar(
+            email_mod.senha_redefinida_pelo_admin,
+            usuario.email, usuario.name or "", temporaria, _endereco("/")
+        )
+        return jsonify({
+            "ok": True,
+            "usuario": usuario.to_dict(),
+            "senha_temporaria": temporaria,
+            "email_enviado": enviada,
+            "mensagem": "Entregue esta senha à pessoa. Ela não será mostrada de novo.",
+        })
+
     @app.route("/api/auth/eu")
     def api_eu():
         usuario = auth.usuario_atual()
@@ -226,6 +378,7 @@ def _register_routes(app: Flask):
         except auth.AuthError as exc:
             return _json_error(exc.mensagem, exc.status)
         log_action("auth.aprovar", detail=usuario.email, permission="WRITE", success=True)
+        _avisar(email_mod.acesso_liberado, usuario.email, usuario.name or "", _endereco("/"))
         return jsonify({"ok": True, "usuario": usuario.to_dict()})
 
     @app.route("/api/admin/usuarios/<int:user_id>/recusar", methods=["POST"])

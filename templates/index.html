@@ -12,6 +12,7 @@
 <title>N.A.S.H — Command Center</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='voz.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='painel.css') }}">
 <script>
   window.MathJax = {
     tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']] },
@@ -356,6 +357,23 @@
           <span>Leitura das respostas em voz alta</span>
           <button class="btn small" id="settings-voice-toggle">Ativar</button>
         </div>
+        <div class="panel-header" style="border:none; padding:16px 0 8px;">Sua conta</div>
+        <div class="stat-row"><span>Entrou como</span><span class="stat-value" id="settings-email">—</span></div>
+
+        <div class="inline-form" id="form-senha" style="margin-top:10px;">
+          <div class="campo-conta">
+            <label for="senha-atual">Senha atual</label>
+            <input type="password" id="senha-atual" autocomplete="current-password">
+          </div>
+          <div class="campo-conta">
+            <label for="senha-nova">Nova senha (mínimo 8 caracteres)</label>
+            <input type="password" id="senha-nova" autocomplete="new-password" minlength="8">
+          </div>
+          <div class="row">
+            <button class="btn primary" id="btn-trocar-senha">Trocar senha</button>
+          </div>
+        </div>
+
         <p style="color: var(--text-muted); font-size: 13px; margin-top: 14px;">
           As demais configurações (chave de API, modelo, limite de histórico) ficam no arquivo
           <code style="font-family: var(--font-mono); background: rgba(0,229,255,0.08); padding: 1px 5px; border-radius: 3px;">.env</code>

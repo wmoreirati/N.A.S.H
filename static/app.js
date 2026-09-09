@@ -128,6 +128,9 @@
         $(`#view-${view}`).classList.add("active");
         const titleEl = $("#header-page-title");
         if (titleEl && PAGE_TITLES[view]) titleEl.textContent = PAGE_TITLES[view];
+        // No celular a barra rola de lado; sem isto o item recém-aberto pode
+        // ficar fora da tela e a pessoa perde a referência de onde está.
+        btn.scrollIntoView({ block: "nearest", inline: "nearest" });
         if (view === "agenda") { loadCalendar(); loadTasks(); }
         if (view === "projects") loadProjects();
         if (view === "memory") loadMemory();
@@ -244,10 +247,16 @@
       </div>`;
       appendMessage("assistant", data.text);
       refreshStatus();
-      if (document.querySelector("#view-tasks.active")) loadTasks();
+      // A view chama-se `view-agenda` e mostra tarefas E calendário juntos.
+      // Antes aqui se procurava por ids de tarefas e de calendário separados,
+      // que nunca existiram: as duas linhas nunca dispararam, e confirmar uma
+      // ação pelo chat não atualizava a Agenda aberta ao lado.
+      if (document.querySelector("#view-agenda.active")) {
+        loadTasks();
+        loadCalendar();
+      }
       if (document.querySelector("#view-projects.active")) loadProjects();
       if (document.querySelector("#view-memory.active")) loadMemory();
-      if (document.querySelector("#view-calendar.active")) loadCalendar();
     } catch (err) {
       toast(err.message, "error");
       $$("button", cardEl).forEach((b) => (b.disabled = false));
@@ -945,6 +954,35 @@
     // A aba de acessos só existe para o administrador. Esconder não é a
     // proteção — a API recusa de qualquer forma; isto é só não oferecer
     // uma porta que não abre.
+    const alvoEmail = $("#settings-email");
+    if (alvoEmail) alvoEmail.textContent = usuarioAtual.email;
+
+    const btnSenha = $("#btn-trocar-senha");
+    if (btnSenha) {
+      btnSenha.addEventListener("click", async () => {
+        const atual = $("#senha-atual").value;
+        const nova = $("#senha-nova").value;
+        if (!atual || !nova) {
+          toast("Preencha a senha atual e a nova.", "error");
+          return;
+        }
+        btnSenha.disabled = true;
+        try {
+          await api("/api/auth/trocar-senha", {
+            method: "POST",
+            body: JSON.stringify({ senha_atual: atual, nova_senha: nova }),
+          });
+          $("#senha-atual").value = "";
+          $("#senha-nova").value = "";
+          toast("Senha alterada.", "success");
+        } catch (err) {
+          toast(err.message, "error");
+        } finally {
+          btnSenha.disabled = false;
+        }
+      });
+    }
+
     if (usuarioAtual.is_admin) {
       const nav = $("#nav-acessos");
       if (nav) nav.hidden = false;
@@ -1028,9 +1066,41 @@
           acoes.appendChild(botaoAcesso("Recusar", "recusar", u));
         }
       }
+      // Vale inclusive para outro administrador: alguém precisa conseguir
+      // socorrer quem perdeu a senha.
+      acoes.appendChild(botaoRedefinirSenha(u));
 
       lista.appendChild(card);
     });
+  }
+
+  function botaoRedefinirSenha(usuario) {
+    const btn = document.createElement("button");
+    btn.className = "btn small";
+    btn.textContent = "Redefinir senha";
+    btn.addEventListener("click", async () => {
+      if (!confirm(`Redefinir a senha de ${usuario.email}? A senha atual deixa de valer.`)) return;
+      btn.disabled = true;
+      try {
+        const r = await api(`/api/admin/usuarios/${usuario.id}/redefinir-senha`,
+                            { method: "POST" });
+        // Mostra a senha na tela mesmo tendo enviado por e-mail: se o envio
+        // falhar, esta é a única cópia -- ela não fica salva em lugar nenhum.
+        const porEmail = r.email_enviado
+          ? "Enviada por e-mail. "
+          : "NÃO foi possível enviar o e-mail. ";
+        alert(`${porEmail}Senha temporária de ${usuario.email}:
+
+${r.senha_temporaria}
+
+Anote agora: ela não será mostrada de novo.`);
+        loadAcessos();
+      } catch (err) {
+        toast(err.message, "error");
+        btn.disabled = false;
+      }
+    });
+    return btn;
   }
 
   function botaoAcesso(texto, acao, usuario) {

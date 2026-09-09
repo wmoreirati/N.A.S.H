@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#05080d">
+<meta name="robots" content="noindex, nofollow">
+<title>N.A.S.H — Nova senha</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='acesso.css') }}">
+</head>
+<body>
+
+<main class="porta">
+  <section class="cartao">
+
+    <div class="marca">
+      <div class="marca-simbolo">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="8"/>
+        </svg>
+      </div>
+      <div class="marca-nome">N.A.S.H</div>
+      <div class="marca-sub">Nova senha</div>
+    </div>
+
+    <form id="form-redefinir" novalidate>
+      <input type="hidden" id="token" value="{{ token }}">
+
+      <div class="campo">
+        <label for="nova">Nova senha</label>
+        <input type="password" id="nova" autocomplete="new-password"
+               minlength="8" required>
+        <p class="ajuda">Mínimo de 8 caracteres.</p>
+      </div>
+
+      <div class="campo">
+        <label for="repetir">Repita a nova senha</label>
+        <input type="password" id="repetir" autocomplete="new-password"
+               minlength="8" required>
+      </div>
+
+      <button type="submit" class="enviar">Salvar nova senha</button>
+    </form>
+
+    <div class="aviso" id="aviso" role="status" aria-live="polite"></div>
+
+    <p class="nota">
+      <a class="elo" href="{{ url_for('pagina_login') }}">Voltar para o login</a>
+    </p>
+
+  </section>
+</main>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (s) => document.querySelector(s);
+  const aviso = $("#aviso");
+  const form = $("#form-redefinir");
+
+  function mostrar(texto, tipo) {
+    aviso.textContent = texto;
+    aviso.className = "aviso " + tipo;
+  }
+
+  // Link sem token não tem o que fazer: avisa em vez de deixar a pessoa
+  // preencher um formulário que vai falhar de qualquer jeito.
+  if (!$("#token").value) {
+    form.hidden = true;
+    mostrar("Este link está incompleto. Peça um novo na tela de login.", "erro");
+  }
+
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    const nova = $("#nova").value;
+    if (nova !== $("#repetir").value) {
+      mostrar("As duas senhas não são iguais.", "erro");
+      return;
+    }
+
+    const botao = form.querySelector("button[type=submit]");
+    botao.disabled = true;
+    try {
+      const resp = await fetch("/api/auth/redefinir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: $("#token").value, nova_senha: nova }),
+      });
+      let dados = {};
+      try { dados = await resp.json(); } catch (_) { /* mantém {} */ }
+
+      if (resp.ok && dados.ok) {
+        form.hidden = true;
+        mostrar((dados.mensagem || "Senha alterada.") + " Redirecionando…", "ok");
+        setTimeout(() => { window.location.href = "/login"; }, 1800);
+        return;
+      }
+      mostrar(dados.error || "Não foi possível alterar a senha.", "erro");
+    } catch (_) {
+      mostrar("Sem conexão com o servidor. Tente de novo.", "erro");
+    } finally {
+      botao.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>

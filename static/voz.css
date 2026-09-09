@@ -1,25 +1,8 @@
 /* ============================================================
-   N.A.S.H — Modo de conversa por voz (tela cheia) e painel de acessos.
+   N.A.S.H — Modo de conversa por voz (tela cheia).
    Usa os tokens de style.css; nada de cor solta aqui.
+   Regras de painel (acessos, conta) ficam em painel.css.
    ============================================================ */
-
-/* ---------- Aviso de pedidos de acesso aguardando ---------- */
-
-.badge-pendentes {
-  margin-left: auto;
-  min-width: 20px;
-  padding: 1px 6px;
-  border-radius: 10px;
-  background: var(--amber);
-  color: #1a0d02;
-  font-family: var(--font-mono);
-  font-size: .72rem;
-  font-weight: 600;
-  text-align: center;
-}
-.badge-pendentes[hidden] { display: none !important; }
-
-body.voz-ativa { overflow: hidden; }
 
 #voz-overlay {
   position: fixed;

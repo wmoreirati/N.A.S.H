@@ -12,7 +12,7 @@ mesmo entre usuários já aprovados.
 """
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import wraps
 
 from flask import has_request_context, jsonify, session
@@ -141,6 +141,129 @@ def recusar(user_id: int) -> User:
     if usuario.is_admin:
         raise AuthError("Não é possível recusar um administrador.", status=400)
     usuario.status = RECUSADO
+    db.session.commit()
+    return usuario
+
+
+def _validar_senha(senha: str) -> str:
+    if len(senha or "") < TAMANHO_MINIMO_SENHA:
+        raise AuthError(
+            f"A senha precisa ter pelo menos {TAMANHO_MINIMO_SENHA} caracteres."
+        )
+    return senha
+
+
+def trocar_senha(usuario: User, senha_atual: str, nova_senha: str) -> User:
+    """
+    Troca a própria senha, exigindo a atual.
+
+    Exigir a atual não é burocracia: sem isso, quem sentasse na frente de uma
+    sessão aberta trocaria a senha e tomaria a conta.
+    """
+    if not check_password_hash(usuario.password_hash, senha_atual or ""):
+        raise AuthError("A senha atual está incorreta.", status=403)
+    if check_password_hash(usuario.password_hash, nova_senha or ""):
+        raise AuthError("A nova senha precisa ser diferente da atual.")
+
+    usuario.password_hash = generate_password_hash(_validar_senha(nova_senha))
+    db.session.commit()
+    return usuario
+
+
+def gerar_senha_temporaria(tamanho: int = 12) -> str:
+    """
+    Senha temporária legível, para ser DITADA a alguém.
+
+    Sem caracteres que se confundem falando ou lendo (O/0, I/l/1), porque esta
+    senha costuma ser passada por mensagem ou de viva voz. `secrets` em vez de
+    `random`: previsível aqui seria uma porta aberta.
+    """
+    import secrets
+
+    alfabeto = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return "".join(secrets.choice(alfabeto) for _ in range(tamanho))
+
+
+def redefinir_senha(user_id: int) -> tuple[User, str]:
+    """
+    O administrador redefine a senha de alguém e recebe a temporária UMA vez.
+
+    Devolve a senha em texto porque ela precisa ser entregue à pessoa; ela não
+    fica gravada em lugar nenhum além do hash. Não existe envio de e-mail neste
+    projeto -- inventar um fluxo de link seria prometer o que não há.
+    """
+    usuario = User.query.get(user_id)
+    if not usuario:
+        raise AuthError("Usuário não encontrado.", status=404)
+
+    temporaria = gerar_senha_temporaria()
+    usuario.password_hash = generate_password_hash(temporaria)
+    db.session.commit()
+    return usuario, temporaria
+
+
+# ---------------------------------------------------------------------------
+# Recuperação de senha por link
+# ---------------------------------------------------------------------------
+
+VALIDADE_TOKEN_HORAS = 2
+
+
+def criar_token_de_recuperacao(usuario: User) -> str:
+    """
+    Gera o token e guarda apenas o HASH dele.
+
+    Guardar o token em texto seria repetir, com outro nome, o erro de guardar
+    senha em texto: quem lesse o banco entraria na conta de qualquer um. O que
+    volta daqui é a única cópia legível, e ela vai direto para o e-mail.
+    """
+    import secrets
+
+    token = secrets.token_urlsafe(32)
+    usuario.reset_token_hash = generate_password_hash(token)
+    usuario.reset_expira_em = datetime.utcnow() + timedelta(hours=VALIDADE_TOKEN_HORAS)
+    db.session.commit()
+    return token
+
+
+def usuario_por_token(token: str) -> User | None:
+    """
+    Encontra o dono de um token válido, ou None.
+
+    Percorre só quem tem recuperação em aberto. A comparação é por hash, então
+    não dá para consultar direto pelo token -- e é justamente esse o ponto.
+    """
+    if not token:
+        return None
+
+    agora = datetime.utcnow()
+    candidatos = User.query.filter(
+        User.reset_token_hash.isnot(None),
+        User.reset_expira_em.isnot(None),
+        User.reset_expira_em > agora,
+    ).all()
+
+    for usuario in candidatos:
+        if check_password_hash(usuario.reset_token_hash, token):
+            return usuario
+    return None
+
+
+def concluir_recuperacao(token: str, nova_senha: str) -> User:
+    """Aplica a nova senha e queima o token — uso único, sem exceção."""
+    usuario = usuario_por_token(token)
+    if not usuario:
+        raise AuthError(
+            "Este link de recuperação é inválido ou já expirou. Peça um novo.",
+            status=400,
+        )
+
+    usuario.password_hash = generate_password_hash(_validar_senha(nova_senha))
+    usuario.reset_token_hash = None
+    usuario.reset_expira_em = None
+
+    # Conta que estava recusada não volta por aqui: recuperar senha não é
+    # recuperar permissão.
     db.session.commit()
     return usuario
 

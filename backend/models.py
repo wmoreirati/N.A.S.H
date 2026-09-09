@@ -34,6 +34,11 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     approved_at = db.Column(db.DateTime, nullable=True)
 
+    # Recuperacao de senha. Guarda o HASH do token, nunca o token: quem ler o
+    # banco nao consegue redefinir a senha de ninguem. Expira e e de uso unico.
+    reset_token_hash = db.Column(db.Text, nullable=True)
+    reset_expira_em = db.Column(db.DateTime, nullable=True)
+
     @property
     def aprovado(self) -> bool:
         return self.status == APROVADO

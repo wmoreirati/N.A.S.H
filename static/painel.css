@@ -1,0 +1,101 @@
+/* ============================================================
+   N.A.S.H — Acréscimos ao painel: acessos e conta.
+
+   Separado de voz.css de propósito. Aquele arquivo é do modo de voz; estas
+   regras são da aplicação em si (aba Acessos, campos de senha em Ajustes).
+   Misturar os dois faria um crescer dentro do outro sem ninguém perceber.
+
+   Usa os tokens de style.css — nenhuma cor solta aqui.
+   ============================================================ */
+
+/* ---------- Aviso de pedidos de acesso aguardando ---------- */
+
+.badge-pendentes {
+  margin-left: auto;
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--amber);
+  color: #1a0d02;
+  font-family: var(--font-mono);
+  font-size: .72rem;
+  font-weight: 600;
+  text-align: center;
+}
+.badge-pendentes[hidden] { display: none !important; }
+
+/* ---------- Campos de conta (Ajustes) ---------- */
+
+.campo-conta { margin-bottom: 10px; }
+
+.campo-conta label {
+  display: block;
+  margin-bottom: 5px;
+  font-family: var(--font-ui);
+  font-size: .78rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.campo-conta input {
+  width: 100%;
+  max-width: 340px;
+  padding: 9px 11px;
+  background: var(--bg-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  font-size: .92rem;
+}
+
+.campo-conta input:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: var(--glow-cyan);
+}
+
+/* ---------- Barra de navegação no celular ---------- */
+
+/* No celular a navegação vira uma barra que rola de lado: são 11 itens em
+   375px. Sem pista visual, "Acessos", "Ajustes" e "Sair" simplesmente não
+   existem para quem usa o telefone — ficam além da borda e ninguém adivinha
+   que dá para deslizar. O esmaecido na direita é essa pista.
+
+   Só aparece onde a barra é horizontal; no desktop a lateral é vertical e
+   cabe inteira. */
+@media (max-width: 900px) {
+  #sidebar {
+    position: relative;
+    scrollbar-width: none;               /* a pista é o esmaecido, não a barra */
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  #sidebar::-webkit-scrollbar { display: none; }
+
+  /* Preso à direita da área visível, por cima do conteúdo que sai da tela. */
+  #sidebar::after {
+    content: "";
+    position: sticky;
+    right: 0;
+    flex: 0 0 34px;
+    align-self: stretch;
+    margin-left: -34px;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, var(--bg) 78%);
+  }
+}
+
+/* ---------- Cartões da lista de acessos ---------- */
+
+/* Ações em linha que quebram bem no celular, onde três botões não cabem
+   lado a lado. */
+#lista-acessos .item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+#lista-acessos .item-card { margin-bottom: 10px; }
