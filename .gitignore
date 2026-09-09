@@ -12,3 +12,7 @@ N.A.S.H/
 
 # Vercel
 .vercel/
+
+# Notas de trabalho da sessao (handoff, relatorios). Sao sobre o processo,
+# nao sobre o produto -- nao pertencem ao repositorio do dono do projeto.
+.memoria/
