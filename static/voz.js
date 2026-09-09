@@ -32,6 +32,9 @@
   const transcricao = $("#voz-transcricao");
   const botaoMic = $("#voz-microfone");
   const botaoFechar = $("#voz-fechar");
+  const confirmacao = $("#voz-confirmacao");
+  const botaoConfirmar = $("#voz-confirmar");
+  const botaoCancelar = $("#voz-cancelar");
 
   const Reconhecimento =
     window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -184,6 +187,65 @@
   }
 
   // ----------------------------------------------------------------
+  // Confirmacao de acao de escrita
+  // ----------------------------------------------------------------
+
+  // Acao aguardando sim/nao. Enquanto isto nao for nulo, o que a pessoa
+  // falar e lido como RESPOSTA, e nao como uma pergunta nova.
+  let acaoPendente = null;
+
+  const SIM = ["sim", "confirmar", "confirma", "confirmo", "pode", "ok",
+               "isso", "positivo", "claro", "manda", "fecha"];
+  const NAO = ["nao", "não", "cancelar", "cancela", "negativo",
+               "deixa", "esquece", "para"];
+
+  function interpretarResposta(texto) {
+    // Sem acentos e so palavras, para "não" e "nao" caírem no mesmo lugar.
+    const limpo = (texto || "")
+      .toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z\s]/g, " ")
+      .trim();
+    const palavras = limpo.split(/\s+/);
+
+    // Nega ANTES de afirmar: "nao pode" tem "pode" dentro, e confirmar por
+    // engano executa algo que a pessoa recusou. O erro barato e o contrario.
+    if (palavras.some((p) => NAO.includes(p))) return false;
+    if (palavras.some((p) => SIM.includes(p))) return true;
+    return null;   // não deu para entender
+  }
+
+  function limparConfirmacao() {
+    acaoPendente = null;
+    confirmacao.hidden = true;
+  }
+
+  async function resolverAcao(confirmar) {
+    if (!acaoPendente) return;
+    const id = acaoPendente.id;
+    limparConfirmacao();
+    definirEstado(confirmar ? "Executando…" : "Cancelando…", "pensando");
+
+    try {
+      const resp = await fetch(
+        `/api/pending-actions/${id}/${confirmar ? "confirm" : "cancel"}`,
+        { method: "POST", headers: { "Content-Type": "application/json" } }
+      );
+      const dados = await resp.json();
+      const texto = dados.text
+        || (confirmar ? "Pronto." : "Cancelado.");
+      transcricao.textContent = texto;
+      await falar(texto);
+    } catch (_) {
+      const erro = "Não consegui concluir a ação.";
+      transcricao.textContent = erro;
+      await falar(erro);
+    }
+
+    if (aberto) definirEstado("Toque para falar", "");
+  }
+
+  // ----------------------------------------------------------------
   // Enviar ao assistente
   // ----------------------------------------------------------------
 
@@ -204,14 +266,19 @@
 
       const dados = await resp.json();
 
-      // Ação que exige confirmação não pode ser confirmada por voz: o cartão
-      // Confirmar/Cancelar é a garantia central do projeto e vive na tela.
-      if (dados.type === "pending_action") {
-        await falar(
-          "Preparei uma ação que precisa da sua confirmação. " +
-          "Vou fechar a voz para você conferir na tela."
-        );
-        fechar();
+      // Acao de escrita: o servidor NAO executou nada ainda, apenas registrou
+      // uma acao pendente. A confirmacao explicita continua obrigatoria --
+      // ela so passa a caber aqui dentro, em vez de expulsar a pessoa do modo
+      // voz. O nome do tipo vem de agent.py: `confirmation_required`.
+      if (dados.type === "confirmation_required" && dados.pending_action) {
+        acaoPendente = dados.pending_action;
+        const pergunta = dados.text || acaoPendente.description;
+        transcricao.textContent = pergunta;
+        confirmacao.hidden = false;
+        definirEstado("Confirma?", "confirmando");
+        await falar(pergunta + " Diga sim para confirmar, ou não para cancelar.");
+        // Volta a escutar sozinho: a resposta esperada e uma palavra so.
+        if (aberto && acaoPendente) alternarEscuta();
         return;
       }
 
@@ -253,8 +320,24 @@
         if (evento.results[i].isFinal) final += trecho;
         else parcial += trecho;
       }
-      transcricao.textContent = final || parcial;
-      if (final.trim()) perguntar(final.trim());
+      // Durante uma confirmacao a pergunta FICA na tela: a pessoa precisa
+      // continuar vendo o que esta confirmando enquanto responde.
+      if (!acaoPendente) transcricao.textContent = final || parcial;
+      if (!final.trim()) return;
+
+      if (acaoPendente) {
+        const resposta = interpretarResposta(final);
+        if (resposta === null) {
+          // Nao entendi: NAO assume nada. Pergunta de novo.
+          falar("Não entendi. Diga sim para confirmar, ou não para cancelar.")
+            .then(() => { if (aberto && acaoPendente) alternarEscuta(); });
+          return;
+        }
+        resolverAcao(resposta);
+        return;
+      }
+
+      perguntar(final.trim());
     };
 
     r.onerror = (evento) => {
@@ -289,7 +372,10 @@
       return;
     }
     window.speechSynthesis && window.speechSynthesis.cancel();
-    transcricao.textContent = "";
+    // Durante uma confirmacao a pergunta PERMANECE: e o que a pessoa esta
+    // conferindo enquanto responde. Limpar aqui era pedir "confirma?" com a
+    // tela em branco -- justamente onde ouvir errado custa caro.
+    if (!acaoPendente) transcricao.textContent = "";
     try {
       reconhecedor.start();
     } catch (_) {
@@ -331,6 +417,9 @@
     overlay.hidden = true;
     overlay.setAttribute("aria-hidden", "true");
     document.body.classList.remove("voz-ativa");
+    // Fechar NAO confirma nada: a acao segue pendente no servidor e pode ser
+    // resolvida pelo cartao do chat.
+    limparConfirmacao();
     if (reconhecedor && escutando) reconhecedor.stop();
     if (window.speechSynthesis) window.speechSynthesis.cancel();
     desligarAnalisadorDeVolume();
@@ -353,6 +442,9 @@
       }
     });
   }
+
+  botaoConfirmar.addEventListener("click", () => resolverAcao(true));
+  botaoCancelar.addEventListener("click", () => resolverAcao(false));
 
   botaoMic.addEventListener("click", alternarEscuta);
   orbe.addEventListener("click", alternarEscuta);

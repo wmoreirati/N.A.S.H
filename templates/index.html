@@ -427,6 +427,14 @@
     <div class="voz-transcricao" id="voz-transcricao" aria-live="polite"></div>
   </div>
 
+  <!-- Confirmacao de acao de escrita, sem sair do modo voz. O cartao
+       Confirmar/Cancelar e a garantia central do projeto: aqui ele muda de
+       lugar, nao de existencia. Da para responder por toque ou por voz. -->
+  <div class="voz-confirmacao" id="voz-confirmacao" hidden>
+    <button class="voz-btn confirmar" id="voz-confirmar">Confirmar</button>
+    <button class="voz-btn cancelar" id="voz-cancelar">Cancelar</button>
+  </div>
+
   <div class="voz-controles">
     <button class="voz-botao" id="voz-microfone" aria-label="Falar">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
