@@ -191,20 +191,77 @@ def servicos_externos_relevantes(mensagem: str) -> set[str]:
     }
 
 
-def schemas_externos_para(mensagem: str) -> list[dict]:
-    """Esquemas das acoes externas dos servicos citados na mensagem."""
+# Quantas mensagens ANTERIORES do usuario ainda acionam o gatilho.
+#
+# O gatilho lia so a mensagem do turno, mas o modelo le o historico inteiro.
+# Um pedido feito antes ("me mande a lista de arquivos do drive") que ficasse
+# sem resposta chegava ao modelo turnos depois SEM a ferramenta
+# correspondente -- e ele preenchia o buraco inventando uma lista plausivel.
+JANELA_GATILHO_HISTORICO = 4
+
+# Teto para os esquemas trazidos pelo HISTORICO, em tokens aproximados.
+# Os servicos citados na mensagem ATUAL nunca sao cortados por ele: este
+# orcamento so limita o que a janela acrescenta. O catalogo inteiro custa
+# ~5.800 tokens e o teto da camada gratuita e 6.000 por minuto -- alargar a
+# janela sem limite trocaria a resposta inventada por um estouro de cota.
+ORCAMENTO_GATILHO_HISTORICO_TOKENS = 2000
+
+
+def _schemas_dos_servicos(servicos: set[str]) -> list[dict]:
+    return [
+        s for s in composio_tools.get_schemas()
+        if s["function"]["name"].split("_", 1)[0].lower() in servicos
+    ]
+
+
+def _servicos_dos_schemas(schemas: list[dict]) -> set[str]:
+    """Servicos representados num conjunto de esquemas, para o log dizer o
+    que realmente foi oferecido -- e nao o que a mensagem atual sugeriria."""
+    return {s["function"]["name"].split("_", 1)[0].lower() for s in schemas}
+
+
+def _custo_tokens(schemas: list[dict]) -> int:
+    """Custo aproximado dos esquemas, na conta usual de ~4 caracteres/token."""
+    return sum(len(json.dumps(s, ensure_ascii=False)) for s in schemas) // 4
+
+
+def _ultimas_mensagens_do_usuario(historico, limite: int) -> list[str]:
+    """As `limite` ultimas falas do usuario, da mais recente para a mais antiga."""
+    if not historico:
+        return []
+    textos = [
+        (m.get("content") or "")
+        for m in historico
+        if (m.get("role") or "") == "user"
+    ]
+    return list(reversed(textos))[:limite]
+
+
+def schemas_externos_para(mensagem: str, historico=None) -> list[dict]:
+    """
+    Esquemas das acoes externas dos servicos citados na mensagem -- e, dentro
+    de um orcamento, nos ultimos turnos do usuario.
+    """
     # As contas conectadas (Gmail, Agenda, Drive) sao de uma pessoa so: a dona
     # do projeto. Usuario comum aprovado NAO recebe estas ferramentas -- sem
     # isto, qualquer acesso liberado leria o e-mail dela pelo chat.
     if not e_admin():
         return []
-    servicos = servicos_externos_relevantes(mensagem)
-    if not servicos:
+
+    escolhidos = servicos_externos_relevantes(mensagem)
+
+    gasto = 0
+    for anterior in _ultimas_mensagens_do_usuario(historico, JANELA_GATILHO_HISTORICO):
+        for servico in sorted(servicos_externos_relevantes(anterior) - escolhidos):
+            custo = _custo_tokens(_schemas_dos_servicos({servico}))
+            if gasto + custo > ORCAMENTO_GATILHO_HISTORICO_TOKENS:
+                continue
+            escolhidos.add(servico)
+            gasto += custo
+
+    if not escolhidos:
         return []
-    return [
-        s for s in composio_tools.get_schemas()
-        if s["function"]["name"].split("_", 1)[0].lower() in servicos
-    ]
+    return _schemas_dos_servicos(escolhidos)
 
 
 # ===========================================================================
@@ -276,6 +333,19 @@ Nunca finja que Spotify, Google Calendar, Gmail, Outlook ou mensagens estão con
 O status real das conexões está listado abaixo.
 
 Confie apenas nesse status.
+
+Estar conectado NÃO é o mesmo que ter os dados em mãos. Conteúdo desses serviços —
+nome de arquivo do Drive, assunto de e-mail, horário de compromisso, linha de planilha,
+título de página do Notion — só pode ser afirmado quando veio de um resultado de
+ferramenta NESTA conversa.
+
+Se a ferramenta não estiver disponível neste turno, diga que não consegue consultar
+agora e peça para repetir o pedido citando o serviço pelo nome. Nunca preencha com
+exemplo plausível: uma lista inventada é pior que uma recusa, porque parece verdadeira.
+
+Isso vale inclusive para pedido que ficou para trás na conversa. Se você está
+respondendo agora a algo pedido turnos atrás e não tem a ferramenta, recuse — não
+reconstitua de memória.
 
 PESQUISA:
 
@@ -1763,12 +1833,12 @@ def run_chat_turn(
     # Acoes externas so entram quando a mensagem cita o servico. O catalogo
     # inteiro custa ~5.800 tokens; mandado em toda pergunta, estouraria
     # sozinho o teto de 6.000 tokens/minuto da camada gratuita do provedor.
-    externos = schemas_externos_para(user_message)
+    externos = schemas_externos_para(user_message, history)
     if externos:
         tools_schema = list(tools_schema) + externos
         print(
             f"[EXTERNOS] {len(externos)} acao(oes) de "
-            f"{sorted(servicos_externos_relevantes(user_message))}"
+            f"{sorted(_servicos_dos_schemas(externos))}"
         )
 
     known_tool_names = {
